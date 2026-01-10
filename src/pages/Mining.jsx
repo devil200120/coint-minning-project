@@ -94,8 +94,8 @@ const Mining = () => {
 
   // Toggle Mining Status
   const toggleMiningStatus = (userId) => {
-    setMiningUsers(users =>
-      users.map(user =>
+    setMiningUsers((users) =>
+      users.map((user) =>
         user.id === userId
           ? { ...user, status: user.status === "mining" ? "paused" : "mining" }
           : user
@@ -105,10 +105,15 @@ const Mining = () => {
 
   // Reset User Mining
   const resetUserMining = (userId) => {
-    setMiningUsers(users =>
-      users.map(user =>
+    setMiningUsers((users) =>
+      users.map((user) =>
         user.id === userId
-          ? { ...user, progress: 0, timeRemaining: `${config.cycleDuration}:00:00`, status: "mining" }
+          ? {
+              ...user,
+              progress: 0,
+              timeRemaining: `${config.cycleDuration}:00:00`,
+              status: "mining",
+            }
           : user
       )
     );
@@ -117,7 +122,7 @@ const Mining = () => {
   // Refresh All Sessions
   const refreshSessions = () => {
     // Simulate refresh - in real app, this would fetch from API
-    setMiningUsers(users => [...users]);
+    setMiningUsers((users) => [...users]);
   };
 
   const miningData = [
@@ -148,7 +153,10 @@ const Mining = () => {
         <div className="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 bg-emerald-500 text-white rounded-xl shadow-lg animate-in slide-in-from-top-2">
           <CheckCircle className="w-5 h-5" />
           <span className="font-medium">Configuration saved successfully!</span>
-          <button onClick={() => setShowSuccess(false)} className="ml-2 hover:bg-white/20 rounded p-1">
+          <button
+            onClick={() => setShowSuccess(false)}
+            className="ml-2 hover:bg-white/20 rounded p-1"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -322,11 +330,16 @@ const Mining = () => {
               <label className="text-sm font-medium text-slate-700 mb-2 block">
                 Cycle Duration (hours)
               </label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={config.cycleDuration}
-                onChange={(e) => setConfig({ ...config, cycleDuration: Number(e.target.value) })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10" 
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    cycleDuration: Number(e.target.value),
+                  })
+                }
+                className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
               />
             </div>
             <div className="p-4 bg-slate-50 rounded-xl">
@@ -336,7 +349,9 @@ const Mining = () => {
               <input
                 type="number"
                 value={config.baseRate}
-                onChange={(e) => setConfig({ ...config, baseRate: Number(e.target.value) })}
+                onChange={(e) =>
+                  setConfig({ ...config, baseRate: Number(e.target.value) })
+                }
                 step={0.01}
                 className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
               />
@@ -345,15 +360,17 @@ const Mining = () => {
               <label className="text-sm font-medium text-slate-700 mb-2 block">
                 Boost Rate (%)
               </label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={config.boostRate}
-                onChange={(e) => setConfig({ ...config, boostRate: Number(e.target.value) })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10" 
+                onChange={(e) =>
+                  setConfig({ ...config, boostRate: Number(e.target.value) })
+                }
+                className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
               />
             </div>
             <div className="p-4 bg-slate-50 rounded-xl flex items-end">
-              <button 
+              <button
                 onClick={handleSaveConfig}
                 disabled={isSaving}
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg text-sm font-semibold shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
@@ -384,7 +401,7 @@ const Mining = () => {
             </h2>
             <p className="text-sm text-slate-500">Real-time mining progress</p>
           </div>
-          <button 
+          <button
             onClick={refreshSessions}
             className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition-all"
           >
@@ -481,20 +498,25 @@ const Mining = () => {
                       ) : (
                         <Pause className="w-3 h-3" />
                       )}
-                      {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                      {user.status.charAt(0).toUpperCase() +
+                        user.status.slice(1)}
                     </span>
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
                       {user.status !== "completed" && (
-                        <button 
+                        <button
                           onClick={() => toggleMiningStatus(user.id)}
                           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:scale-110 ${
                             user.status === "mining"
                               ? "bg-red-100 text-red-600 hover:bg-red-200"
                               : "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
                           }`}
-                          title={user.status === "mining" ? "Pause Mining" : "Resume Mining"}
+                          title={
+                            user.status === "mining"
+                              ? "Pause Mining"
+                              : "Resume Mining"
+                          }
                         >
                           {user.status === "mining" ? (
                             <Pause className="w-4 h-4" />
@@ -503,7 +525,7 @@ const Mining = () => {
                           )}
                         </button>
                       )}
-                      <button 
+                      <button
                         onClick={() => resetUserMining(user.id)}
                         className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition-all hover:scale-110"
                         title="Reset Mining Cycle"

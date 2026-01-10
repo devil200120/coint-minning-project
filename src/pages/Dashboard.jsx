@@ -166,10 +166,30 @@ const Dashboard = () => {
   ];
 
   const systemStats = [
-    { label: "Server Uptime", value: "99.9%", icon: Server, color: "text-emerald-500" },
-    { label: "Active Regions", value: "12", icon: Globe, color: "text-blue-500" },
-    { label: "API Requests", value: "2.4M", icon: Zap, color: "text-amber-500" },
-    { label: "Success Rate", value: "98.5%", icon: Target, color: "text-purple-500" },
+    {
+      label: "Server Uptime",
+      value: "99.9%",
+      icon: Server,
+      color: "text-emerald-500",
+    },
+    {
+      label: "Active Regions",
+      value: "12",
+      icon: Globe,
+      color: "text-blue-500",
+    },
+    {
+      label: "API Requests",
+      value: "2.4M",
+      icon: Zap,
+      color: "text-amber-500",
+    },
+    {
+      label: "Success Rate",
+      value: "98.5%",
+      icon: Target,
+      color: "text-purple-500",
+    },
   ];
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -197,10 +217,16 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5" />
-              <span className="text-sm font-medium text-white/80">Dashboard Overview</span>
+              <span className="text-sm font-medium text-white/80">
+                Dashboard Overview
+              </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, Admin! 👋</h1>
-            <p className="text-white/80 text-sm md:text-base">Here's what's happening with your mining platform today.</p>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">
+              Welcome back, Admin! 👋
+            </h1>
+            <p className="text-white/80 text-sm md:text-base">
+              Here's what's happening with your mining platform today.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
@@ -210,17 +236,27 @@ const Dashboard = () => {
                 onChange={(e) => setSelectedPeriod(e.target.value)}
                 className="bg-transparent text-sm font-medium focus:outline-none cursor-pointer"
               >
-                <option value="today" className="text-slate-800">Today</option>
-                <option value="week" className="text-slate-800">This Week</option>
-                <option value="month" className="text-slate-800">This Month</option>
-                <option value="year" className="text-slate-800">This Year</option>
+                <option value="today" className="text-slate-800">
+                  Today
+                </option>
+                <option value="week" className="text-slate-800">
+                  This Week
+                </option>
+                <option value="month" className="text-slate-800">
+                  This Month
+                </option>
+                <option value="year" className="text-slate-800">
+                  This Year
+                </option>
               </select>
             </div>
             <button
               onClick={handleRefresh}
               className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-colors"
             >
-              <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`}
+              />
             </button>
             <button className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-colors">
               <Download className="w-5 h-5" />
@@ -244,8 +280,12 @@ const Dashboard = () => {
                 12.5%
               </span>
             </div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Total Users</h3>
-            <p className="text-2xl md:text-3xl font-bold text-slate-800">12,845</p>
+            <h3 className="text-sm font-medium text-slate-500 mb-1">
+              Total Users
+            </h3>
+            <p className="text-2xl md:text-3xl font-bold text-slate-800">
+              12,845
+            </p>
             <p className="text-xs text-slate-400 mt-2">+1,234 this week</p>
           </div>
         </div>
@@ -263,8 +303,12 @@ const Dashboard = () => {
                 8.2%
               </span>
             </div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Active Miners</h3>
-            <p className="text-2xl md:text-3xl font-bold text-slate-800">8,234</p>
+            <h3 className="text-sm font-medium text-slate-500 mb-1">
+              Active Miners
+            </h3>
+            <p className="text-2xl md:text-3xl font-bold text-slate-800">
+              8,234
+            </p>
             <p className="text-xs text-slate-400 mt-2">64% of total users</p>
           </div>
         </div>
@@ -282,8 +326,12 @@ const Dashboard = () => {
                 15.3%
               </span>
             </div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Total Coins Mined</h3>
-            <p className="text-2xl md:text-3xl font-bold text-slate-800">1.2M</p>
+            <h3 className="text-sm font-medium text-slate-500 mb-1">
+              Total Coins Mined
+            </h3>
+            <p className="text-2xl md:text-3xl font-bold text-slate-800">
+              1.2M
+            </p>
             <p className="text-xs text-slate-400 mt-2">+156K this week</p>
           </div>
         </div>
@@ -301,8 +349,12 @@ const Dashboard = () => {
                 5.8%
               </span>
             </div>
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Total Referrals</h3>
-            <p className="text-2xl md:text-3xl font-bold text-slate-800">4,521</p>
+            <h3 className="text-sm font-medium text-slate-500 mb-1">
+              Total Referrals
+            </h3>
+            <p className="text-2xl md:text-3xl font-bold text-slate-800">
+              4,521
+            </p>
             <p className="text-xs text-slate-400 mt-2">+312 this week</p>
           </div>
         </div>
@@ -315,8 +367,12 @@ const Dashboard = () => {
           <div className="p-5 md:p-6 border-b border-slate-100">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-slate-800">Analytics Overview</h2>
-                <p className="text-sm text-slate-500">User growth and mining activity</p>
+                <h2 className="text-lg font-bold text-slate-800">
+                  Analytics Overview
+                </h2>
+                <p className="text-sm text-slate-500">
+                  User growth and mining activity
+                </p>
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
@@ -334,17 +390,38 @@ const Dashboard = () => {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
-                  <linearGradient id="colorUsersNew" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient
+                    id="colorUsersNew"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
                     <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="colorMiningNew" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient
+                    id="colorMiningNew"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="name" stroke="#94a3b8" axisLine={false} tickLine={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#e2e8f0"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="name"
+                  stroke="#94a3b8"
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis stroke="#94a3b8" axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
@@ -399,10 +476,15 @@ const Dashboard = () => {
               {pieData.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    ></div>
                     <span className="text-sm text-slate-600">{item.name}</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-800">{item.value}%</span>
+                  <span className="text-sm font-semibold text-slate-800">
+                    {item.value}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -416,8 +498,12 @@ const Dashboard = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-5 md:p-6 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Pending Actions</h2>
-              <p className="text-sm text-slate-500">Items requiring your attention</p>
+              <h2 className="text-lg font-bold text-slate-800">
+                Pending Actions
+              </h2>
+              <p className="text-sm text-slate-500">
+                Items requiring your attention
+              </p>
             </div>
             <span className="px-3 py-1 bg-red-100 text-red-600 text-sm font-semibold rounded-full">
               {pendingActions.reduce((acc, curr) => acc + curr.count, 0)} total
@@ -429,11 +515,15 @@ const Dashboard = () => {
                 key={idx}
                 className={`group flex items-center gap-4 p-4 bg-gradient-to-r ${action.bgGradient} rounded-xl hover:shadow-md transition-all duration-300 cursor-pointer`}
               >
-                <div className={`w-12 h-12 bg-gradient-to-br ${action.gradient} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                <div
+                  className={`w-12 h-12 bg-gradient-to-br ${action.gradient} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}
+                >
                   <action.icon className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-semibold text-slate-800">{action.title}</h4>
+                  <h4 className="text-sm font-semibold text-slate-800">
+                    {action.title}
+                  </h4>
                   <p className="text-xs text-slate-500">{action.desc}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -463,26 +553,46 @@ const Dashboard = () => {
               <div
                 key={idx}
                 className={`flex items-center gap-4 p-3 rounded-xl transition-all duration-300 ${
-                  idx === 0 ? "bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200" :
-                  idx === 1 ? "bg-gradient-to-r from-slate-50 to-gray-50 border border-slate-200" :
-                  idx === 2 ? "bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200" :
-                  "hover:bg-slate-50"
+                  idx === 0
+                    ? "bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200"
+                    : idx === 1
+                    ? "bg-gradient-to-r from-slate-50 to-gray-50 border border-slate-200"
+                    : idx === 2
+                    ? "bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200"
+                    : "hover:bg-slate-50"
                 }`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                  idx === 0 ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-white" :
-                  idx === 1 ? "bg-gradient-to-br from-slate-300 to-gray-400 text-white" :
-                  idx === 2 ? "bg-gradient-to-br from-orange-400 to-amber-500 text-white" :
-                  "bg-slate-100 text-slate-600"
-                }`}>
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                    idx === 0
+                      ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-white"
+                      : idx === 1
+                      ? "bg-gradient-to-br from-slate-300 to-gray-400 text-white"
+                      : idx === 2
+                      ? "bg-gradient-to-br from-orange-400 to-amber-500 text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
                   {miner.rank}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-semibold text-slate-800">{miner.name}</h4>
-                  <p className="text-xs text-slate-500">{miner.coins.toLocaleString()} coins</p>
+                  <h4 className="text-sm font-semibold text-slate-800">
+                    {miner.name}
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    {miner.coins.toLocaleString()} coins
+                  </p>
                 </div>
-                <span className={`flex items-center gap-1 text-xs font-semibold ${miner.change >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                  {miner.change >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                <span
+                  className={`flex items-center gap-1 text-xs font-semibold ${
+                    miner.change >= 0 ? "text-emerald-500" : "text-red-500"
+                  }`}
+                >
+                  {miner.change >= 0 ? (
+                    <ArrowUpRight className="w-3 h-3" />
+                  ) : (
+                    <ArrowDownRight className="w-3 h-3" />
+                  )}
                   {Math.abs(miner.change)}%
                 </span>
               </div>
@@ -497,11 +607,16 @@ const Dashboard = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-5 md:p-6 border-b border-slate-100">
             <h2 className="text-lg font-bold text-slate-800">System Health</h2>
-            <p className="text-sm text-slate-500">Platform performance metrics</p>
+            <p className="text-sm text-slate-500">
+              Platform performance metrics
+            </p>
           </div>
           <div className="p-4 md:p-5 grid grid-cols-2 gap-4">
             {systemStats.map((stat, idx) => (
-              <div key={idx} className="text-center p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+              <div
+                key={idx}
+                className="text-center p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
+              >
                 <stat.icon className={`w-6 h-6 mx-auto mb-2 ${stat.color}`} />
                 <p className="text-xl font-bold text-slate-800">{stat.value}</p>
                 <p className="text-xs text-slate-500">{stat.label}</p>
@@ -557,38 +672,59 @@ const Dashboard = () => {
                           <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
                             {user.name.charAt(0)}
                           </div>
-                          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-                            user.status === "active" ? "bg-emerald-500" : user.status === "inactive" ? "bg-slate-400" : "bg-amber-500"
-                          }`}></span>
+                          <span
+                            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                              user.status === "active"
+                                ? "bg-emerald-500"
+                                : user.status === "inactive"
+                                ? "bg-slate-400"
+                                : "bg-amber-500"
+                            }`}
+                          ></span>
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-800">{user.name}</p>
+                          <p className="font-semibold text-slate-800">
+                            {user.name}
+                          </p>
                           <p className="text-xs text-slate-500">{user.email}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                        user.status === "active"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : user.status === "inactive"
-                          ? "bg-slate-100 text-slate-600"
-                          : "bg-amber-100 text-amber-700"
-                      }`}>
-                        {user.status === "active" && <CheckCircle className="w-3 h-3" />}
-                        {user.status === "inactive" && <XCircle className="w-3 h-3" />}
-                        {user.status === "pending" && <Clock className="w-3 h-3" />}
-                        {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                          user.status === "active"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : user.status === "inactive"
+                            ? "bg-slate-100 text-slate-600"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {user.status === "active" && (
+                          <CheckCircle className="w-3 h-3" />
+                        )}
+                        {user.status === "inactive" && (
+                          <XCircle className="w-3 h-3" />
+                        )}
+                        {user.status === "pending" && (
+                          <Clock className="w-3 h-3" />
+                        )}
+                        {user.status.charAt(0).toUpperCase() +
+                          user.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <Coins className="w-4 h-4 text-amber-500" />
-                        <span className="font-semibold text-slate-800">{user.mining}</span>
+                        <span className="font-semibold text-slate-800">
+                          {user.mining}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm text-slate-500">{user.joined}</span>
+                      <span className="text-sm text-slate-500">
+                        {user.joined}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">

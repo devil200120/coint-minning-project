@@ -183,10 +183,12 @@ const SocialLinks = () => {
             {showSuccess && (
               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg">
                 <Check className="w-4 h-4" />
-                <span className="text-sm font-medium">Links saved successfully!</span>
+                <span className="text-sm font-medium">
+                  Links saved successfully!
+                </span>
               </div>
             )}
-            <button 
+            <button
               onClick={handleSaveLinks}
               disabled={isSaving}
               className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -227,12 +229,17 @@ const SocialLinks = () => {
                 <input
                   type="checkbox"
                   checked={quickActions.followOnX}
-                  onChange={() => setQuickActions(prev => ({ ...prev, followOnX: !prev.followOnX }))}
+                  onChange={() =>
+                    setQuickActions((prev) => ({
+                      ...prev,
+                      followOnX: !prev.followOnX,
+                    }))
+                  }
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                 <span className="ml-3 text-sm font-medium text-slate-700">
-                  {quickActions.followOnX ? 'Enabled' : 'Disabled'}
+                  {quickActions.followOnX ? "Enabled" : "Disabled"}
                 </span>
               </label>
             </div>
@@ -247,12 +254,17 @@ const SocialLinks = () => {
                 <input
                   type="checkbox"
                   checked={quickActions.joinTelegram}
-                  onChange={() => setQuickActions(prev => ({ ...prev, joinTelegram: !prev.joinTelegram }))}
+                  onChange={() =>
+                    setQuickActions((prev) => ({
+                      ...prev,
+                      joinTelegram: !prev.joinTelegram,
+                    }))
+                  }
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                 <span className="ml-3 text-sm font-medium text-slate-700">
-                  {quickActions.joinTelegram ? 'Enabled' : 'Disabled'}
+                  {quickActions.joinTelegram ? "Enabled" : "Disabled"}
                 </span>
               </label>
             </div>

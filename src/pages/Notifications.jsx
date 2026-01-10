@@ -150,7 +150,10 @@ const Notifications = () => {
         title: title,
         message: message,
         type: "manual",
-        audience: notificationType === "all" ? "All Users" : users.find((u) => u.id === selectedUser)?.name || "Specific User",
+        audience:
+          notificationType === "all"
+            ? "All Users"
+            : users.find((u) => u.id === selectedUser)?.name || "Specific User",
         sent: new Date().toLocaleString(),
         deliveredTo: notificationType === "all" ? 12845 : 1,
         status: "sent",
@@ -402,10 +405,14 @@ const Notifications = () => {
             <div className="p-5 md:p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
               <div>
                 <h3 className="text-lg md:text-xl font-bold text-slate-800">
-                  {editingNotification ? "Edit Notification" : "Send Notification"}
+                  {editingNotification
+                    ? "Edit Notification"
+                    : "Send Notification"}
                 </h3>
                 <p className="text-xs md:text-sm text-slate-500">
-                  {editingNotification ? "Update notification details" : "Create and send push notification"}
+                  {editingNotification
+                    ? "Update notification details"
+                    : "Create and send push notification"}
                 </p>
               </div>
               <button
@@ -483,7 +490,9 @@ const Notifications = () => {
                           className="sr-only"
                         />
                         <User className="w-5 h-5 text-slate-600" />
-                        <span className="text-sm font-medium">Specific User</span>
+                        <span className="text-sm font-medium">
+                          Specific User
+                        </span>
                       </label>
                     </div>
                   </div>
@@ -520,8 +529,12 @@ const Notifications = () => {
                                 {user.name.charAt(0)}
                               </div>
                               <div>
-                                <p className="text-sm font-medium text-slate-800">{user.name}</p>
-                                <p className="text-xs text-slate-500">{user.email}</p>
+                                <p className="text-sm font-medium text-slate-800">
+                                  {user.name}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {user.email}
+                                </p>
                               </div>
                             </div>
                           ))
@@ -538,8 +551,19 @@ const Notifications = () => {
 
               {/* Send Button */}
               <button
-                onClick={editingNotification ? handleUpdateNotification : handleSendNotification}
-                disabled={isSending || !title.trim() || !message.trim() || (notificationType === "specific" && !selectedUser && !editingNotification)}
+                onClick={
+                  editingNotification
+                    ? handleUpdateNotification
+                    : handleSendNotification
+                }
+                disabled={
+                  isSending ||
+                  !title.trim() ||
+                  !message.trim() ||
+                  (notificationType === "specific" &&
+                    !selectedUser &&
+                    !editingNotification)
+                }
                 className="btn btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSending ? (
@@ -550,7 +574,9 @@ const Notifications = () => {
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    {editingNotification ? "Update Notification" : "Send Notification"}
+                    {editingNotification
+                      ? "Update Notification"
+                      : "Send Notification"}
                   </>
                 )}
               </button>
@@ -570,7 +596,8 @@ const Notifications = () => {
               Delete Notification?
             </h3>
             <p className="text-sm text-slate-500 text-center mb-6">
-              This action cannot be undone. The notification will be permanently removed.
+              This action cannot be undone. The notification will be permanently
+              removed.
             </p>
             <div className="flex gap-3">
               <button

@@ -117,9 +117,11 @@ const CoinManagement = () => {
     setTimeout(() => {
       setIsSubmitting(false);
       setSuccessMessage(
-        `Successfully ${operation === "add" ? "added" : "deducted"} ${amount} coins ${
-          operation === "add" ? "to" : "from"
-        } ${selectedUserData?.name}`
+        `Successfully ${
+          operation === "add" ? "added" : "deducted"
+        } ${amount} coins ${operation === "add" ? "to" : "from"} ${
+          selectedUserData?.name
+        }`
       );
       setShowSuccess(true);
       setAmount("");
@@ -170,8 +172,12 @@ const CoinManagement = () => {
         <div className="card p-4 md:p-5">
           <div className="flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-xs md:text-sm text-slate-500 mb-1 truncate">Added Today</p>
-              <p className="text-lg md:text-2xl font-bold text-emerald-600">+12,450</p>
+              <p className="text-xs md:text-sm text-slate-500 mb-1 truncate">
+                Added Today
+              </p>
+              <p className="text-lg md:text-2xl font-bold text-emerald-600">
+                +12,450
+              </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
               <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-emerald-500" />
@@ -181,8 +187,12 @@ const CoinManagement = () => {
         <div className="card p-4 md:p-5">
           <div className="flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-xs md:text-sm text-slate-500 mb-1 truncate">Deducted Today</p>
-              <p className="text-lg md:text-2xl font-bold text-red-600">-1,250</p>
+              <p className="text-xs md:text-sm text-slate-500 mb-1 truncate">
+                Deducted Today
+              </p>
+              <p className="text-lg md:text-2xl font-bold text-red-600">
+                -1,250
+              </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
               <TrendingDown className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
@@ -192,8 +202,12 @@ const CoinManagement = () => {
         <div className="card p-4 md:p-5">
           <div className="flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-xs md:text-sm text-slate-500 mb-1 truncate">Transactions</p>
-              <p className="text-lg md:text-2xl font-bold text-slate-800">8,456</p>
+              <p className="text-xs md:text-sm text-slate-500 mb-1 truncate">
+                Transactions
+              </p>
+              <p className="text-lg md:text-2xl font-bold text-slate-800">
+                8,456
+              </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
               <History className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
@@ -280,7 +294,9 @@ const CoinManagement = () => {
                           <p className="text-xs md:text-sm font-medium text-slate-800 truncate">
                             {user.name}
                           </p>
-                          <p className="text-[10px] md:text-xs text-slate-500 truncate">{user.email}</p>
+                          <p className="text-[10px] md:text-xs text-slate-500 truncate">
+                            {user.email}
+                          </p>
                         </div>
                       </div>
                       <span className="text-xs md:text-sm font-semibold text-amber-600 shrink-0 ml-2">
@@ -296,8 +312,13 @@ const CoinManagement = () => {
               </div>
               {selectedUserData && (
                 <div className="mt-2 p-2 bg-amber-50 rounded-lg border border-amber-200 flex items-center justify-between">
-                  <span className="text-xs text-amber-700">Selected: {selectedUserData.name}</span>
-                  <button onClick={() => setSelectedUser("")} className="text-amber-600 hover:text-amber-800">
+                  <span className="text-xs text-amber-700">
+                    Selected: {selectedUserData.name}
+                  </span>
+                  <button
+                    onClick={() => setSelectedUser("")}
+                    className="text-amber-600 hover:text-amber-800"
+                  >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -408,7 +429,9 @@ const CoinManagement = () => {
                       {tx.user.charAt(0)}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800 text-sm">{tx.user}</p>
+                      <p className="font-medium text-slate-800 text-sm">
+                        {tx.user}
+                      </p>
                       <p className="text-xs text-slate-500">{tx.date}</p>
                     </div>
                   </div>
@@ -417,16 +440,23 @@ const CoinManagement = () => {
                       tx.type === "add" ? "text-emerald-600" : "text-red-600"
                     }`}
                   >
-                    {tx.type === "add" ? "+" : "-"}{tx.amount}
+                    {tx.type === "add" ? "+" : "-"}
+                    {tx.amount}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
-                    tx.type === "add"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-red-100 text-red-700"
-                  }`}>
-                    {tx.type === "add" ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
+                      tx.type === "add"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {tx.type === "add" ? (
+                      <Plus className="w-3 h-3" />
+                    ) : (
+                      <Minus className="w-3 h-3" />
+                    )}
                     {tx.type}
                   </span>
                   <span className="text-slate-500">{tx.reason}</span>
@@ -546,7 +576,9 @@ const CoinManagement = () => {
                 </button>
               ))}
               <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
                 disabled={currentPage === totalPages}
                 className="w-8 h-8 md:w-9 md:h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
@@ -566,7 +598,9 @@ const CoinManagement = () => {
           ></div>
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-slate-800">Filter Transactions</h3>
+              <h3 className="text-lg font-bold text-slate-800">
+                Filter Transactions
+              </h3>
               <button
                 onClick={() => setShowFilterModal(false)}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -575,7 +609,9 @@ const CoinManagement = () => {
               </button>
             </div>
             <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Transaction Type</label>
+              <label className="text-sm font-medium text-slate-700">
+                Transaction Type
+              </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { value: "all", label: "All" },
@@ -625,7 +661,9 @@ const CoinManagement = () => {
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-sm">Success!</p>
-              <p className="text-xs text-emerald-100 truncate">{successMessage}</p>
+              <p className="text-xs text-emerald-100 truncate">
+                {successMessage}
+              </p>
             </div>
           </div>
         </div>

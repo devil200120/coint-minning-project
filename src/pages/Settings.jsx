@@ -54,12 +54,36 @@ const Settings = () => {
 
   // Notification Settings State
   const [notificationSettings, setNotificationSettings] = useState([
-    { name: "24hr Mining Complete", description: "Notify when mining cycle completes", enabled: true },
-    { name: "Inactive User Reminder", description: "Remind inactive users to mine", enabled: true },
-    { name: "KYC Reminder", description: "Remind users to complete KYC", enabled: true },
-    { name: "Payment Status Update", description: "Notify on payment approval/rejection", enabled: true },
-    { name: "Referral Signup", description: "Notify when someone uses referral", enabled: true },
-    { name: "Ownership Milestone", description: "Notify on ownership progress", enabled: false },
+    {
+      name: "24hr Mining Complete",
+      description: "Notify when mining cycle completes",
+      enabled: true,
+    },
+    {
+      name: "Inactive User Reminder",
+      description: "Remind inactive users to mine",
+      enabled: true,
+    },
+    {
+      name: "KYC Reminder",
+      description: "Remind users to complete KYC",
+      enabled: true,
+    },
+    {
+      name: "Payment Status Update",
+      description: "Notify on payment approval/rejection",
+      enabled: true,
+    },
+    {
+      name: "Referral Signup",
+      description: "Notify when someone uses referral",
+      enabled: true,
+    },
+    {
+      name: "Ownership Milestone",
+      description: "Notify on ownership progress",
+      enabled: false,
+    },
   ]);
 
   const handleSaveChanges = () => {
@@ -73,8 +97,8 @@ const Settings = () => {
   };
 
   const toggleNotification = (idx) => {
-    setNotificationSettings(prev => 
-      prev.map((notif, i) => 
+    setNotificationSettings((prev) =>
+      prev.map((notif, i) =>
         i === idx ? { ...notif, enabled: !notif.enabled } : notif
       )
     );
@@ -138,7 +162,12 @@ const Settings = () => {
                     <input
                       type="text"
                       value={generalSettings.appName}
-                      onChange={(e) => setGeneralSettings(prev => ({ ...prev, appName: e.target.value }))}
+                      onChange={(e) =>
+                        setGeneralSettings((prev) => ({
+                          ...prev,
+                          appName: e.target.value,
+                        }))
+                      }
                       className="form-input"
                     />
                   </div>
@@ -149,7 +178,12 @@ const Settings = () => {
                     <input
                       type="email"
                       value={generalSettings.supportEmail}
-                      onChange={(e) => setGeneralSettings(prev => ({ ...prev, supportEmail: e.target.value }))}
+                      onChange={(e) =>
+                        setGeneralSettings((prev) => ({
+                          ...prev,
+                          supportEmail: e.target.value,
+                        }))
+                      }
                       className="form-input"
                     />
                   </div>
@@ -160,7 +194,12 @@ const Settings = () => {
                     <input
                       type="tel"
                       value={generalSettings.supportPhone}
-                      onChange={(e) => setGeneralSettings(prev => ({ ...prev, supportPhone: e.target.value }))}
+                      onChange={(e) =>
+                        setGeneralSettings((prev) => ({
+                          ...prev,
+                          supportPhone: e.target.value,
+                        }))
+                      }
                       className="form-input"
                     />
                   </div>
@@ -171,7 +210,12 @@ const Settings = () => {
                     <input
                       type="text"
                       value={generalSettings.appVersion}
-                      onChange={(e) => setGeneralSettings(prev => ({ ...prev, appVersion: e.target.value }))}
+                      onChange={(e) =>
+                        setGeneralSettings((prev) => ({
+                          ...prev,
+                          appVersion: e.target.value,
+                        }))
+                      }
                       className="form-input"
                     />
                   </div>
@@ -186,7 +230,13 @@ const Settings = () => {
                       <input
                         type="checkbox"
                         checked={generalSettings.allowSignupWithoutReferral}
-                        onChange={() => setGeneralSettings(prev => ({ ...prev, allowSignupWithoutReferral: !prev.allowSignupWithoutReferral }))}
+                        onChange={() =>
+                          setGeneralSettings((prev) => ({
+                            ...prev,
+                            allowSignupWithoutReferral:
+                              !prev.allowSignupWithoutReferral,
+                          }))
+                        }
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
@@ -206,7 +256,12 @@ const Settings = () => {
                       <input
                         type="checkbox"
                         checked={generalSettings.maintenanceMode}
-                        onChange={() => setGeneralSettings(prev => ({ ...prev, maintenanceMode: !prev.maintenanceMode }))}
+                        onChange={() =>
+                          setGeneralSettings((prev) => ({
+                            ...prev,
+                            maintenanceMode: !prev.maintenanceMode,
+                          }))
+                        }
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
@@ -241,7 +296,12 @@ const Settings = () => {
                       <input
                         type="number"
                         value={miningSettings.miningCycleDuration}
-                        onChange={(e) => setMiningSettings(prev => ({ ...prev, miningCycleDuration: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setMiningSettings((prev) => ({
+                            ...prev,
+                            miningCycleDuration: Number(e.target.value),
+                          }))
+                        }
                         className="form-input"
                       />
                       <span className="flex items-center px-4 bg-slate-100 rounded-lg text-sm text-slate-600">
@@ -257,7 +317,12 @@ const Settings = () => {
                       <input
                         type="number"
                         value={miningSettings.baseMiningRate}
-                        onChange={(e) => setMiningSettings(prev => ({ ...prev, baseMiningRate: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setMiningSettings((prev) => ({
+                            ...prev,
+                            baseMiningRate: Number(e.target.value),
+                          }))
+                        }
                         step={0.01}
                         className="form-input"
                       />
@@ -274,7 +339,12 @@ const Settings = () => {
                       <input
                         type="number"
                         value={miningSettings.boostRateIncrease}
-                        onChange={(e) => setMiningSettings(prev => ({ ...prev, boostRateIncrease: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setMiningSettings((prev) => ({
+                            ...prev,
+                            boostRateIncrease: Number(e.target.value),
+                          }))
+                        }
                         className="form-input"
                       />
                       <span className="flex items-center px-4 bg-slate-100 rounded-lg text-sm text-slate-600">
@@ -289,7 +359,12 @@ const Settings = () => {
                     <input
                       type="number"
                       value={miningSettings.maxCoinsPerCycle}
-                      onChange={(e) => setMiningSettings(prev => ({ ...prev, maxCoinsPerCycle: Number(e.target.value) }))}
+                      onChange={(e) =>
+                        setMiningSettings((prev) => ({
+                          ...prev,
+                          maxCoinsPerCycle: Number(e.target.value),
+                        }))
+                      }
                       className="form-input"
                     />
                   </div>
@@ -330,7 +405,12 @@ const Settings = () => {
                       <input
                         type="number"
                         value={referralSettings.commissionRate}
-                        onChange={(e) => setReferralSettings(prev => ({ ...prev, commissionRate: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setReferralSettings((prev) => ({
+                            ...prev,
+                            commissionRate: Number(e.target.value),
+                          }))
+                        }
                         className="form-input"
                       />
                       <span className="flex items-center px-4 bg-slate-100 rounded-lg text-sm text-slate-600">
@@ -345,7 +425,12 @@ const Settings = () => {
                     <input
                       type="number"
                       value={referralSettings.maxReferralLegs}
-                      onChange={(e) => setReferralSettings(prev => ({ ...prev, maxReferralLegs: Number(e.target.value) }))}
+                      onChange={(e) =>
+                        setReferralSettings((prev) => ({
+                          ...prev,
+                          maxReferralLegs: Number(e.target.value),
+                        }))
+                      }
                       className="form-input"
                     />
                   </div>
@@ -357,7 +442,12 @@ const Settings = () => {
                       <input
                         type="number"
                         value={referralSettings.referralBonus}
-                        onChange={(e) => setReferralSettings(prev => ({ ...prev, referralBonus: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setReferralSettings((prev) => ({
+                            ...prev,
+                            referralBonus: Number(e.target.value),
+                          }))
+                        }
                         className="form-input"
                       />
                       <span className="flex items-center px-4 bg-slate-100 rounded-lg text-sm text-slate-600">
@@ -373,7 +463,12 @@ const Settings = () => {
                       <input
                         type="number"
                         value={referralSettings.inactivePingInterval}
-                        onChange={(e) => setReferralSettings(prev => ({ ...prev, inactivePingInterval: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setReferralSettings((prev) => ({
+                            ...prev,
+                            inactivePingInterval: Number(e.target.value),
+                          }))
+                        }
                         className="form-input"
                       />
                       <span className="flex items-center px-4 bg-slate-100 rounded-lg text-sm text-slate-600">
@@ -418,7 +513,12 @@ const Settings = () => {
                       <input
                         type="number"
                         value={ownershipSettings.ownershipDaysRequired}
-                        onChange={(e) => setOwnershipSettings(prev => ({ ...prev, ownershipDaysRequired: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setOwnershipSettings((prev) => ({
+                            ...prev,
+                            ownershipDaysRequired: Number(e.target.value),
+                          }))
+                        }
                         className="form-input"
                       />
                       <span className="flex items-center px-4 bg-slate-100 rounded-lg text-sm text-slate-600">
@@ -434,7 +534,12 @@ const Settings = () => {
                       <input
                         type="number"
                         value={ownershipSettings.miningCoinsRequired}
-                        onChange={(e) => setOwnershipSettings(prev => ({ ...prev, miningCoinsRequired: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setOwnershipSettings((prev) => ({
+                            ...prev,
+                            miningCoinsRequired: Number(e.target.value),
+                          }))
+                        }
                         className="form-input"
                       />
                       <span className="flex items-center px-4 bg-slate-100 rounded-lg text-sm text-slate-600">
@@ -506,10 +611,12 @@ const Settings = () => {
             {showSuccess && (
               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg">
                 <Check className="w-4 h-4" />
-                <span className="text-sm font-medium">Settings saved successfully!</span>
+                <span className="text-sm font-medium">
+                  Settings saved successfully!
+                </span>
               </div>
             )}
-            <button 
+            <button
               onClick={handleSaveChanges}
               disabled={isSaving}
               className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"

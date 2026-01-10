@@ -93,15 +93,17 @@ const Payments = () => {
     },
   ]);
 
-  const getPendingCount = () => payments.filter(p => p.status === "pending").length;
+  const getPendingCount = () =>
+    payments.filter((p) => p.status === "pending").length;
 
   const filteredPayments = payments
-    .filter(p => activeTab === "all" ? true : p.status === activeTab)
-    .filter(p => 
-      searchQuery === "" || 
-      p.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.utr.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.email.toLowerCase().includes(searchQuery.toLowerCase())
+    .filter((p) => (activeTab === "all" ? true : p.status === activeTab))
+    .filter(
+      (p) =>
+        searchQuery === "" ||
+        p.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.utr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
   const showSuccessToast = (message) => {
@@ -113,13 +115,13 @@ const Payments = () => {
   const handleApprove = (paymentId) => {
     setIsProcessing(paymentId);
     setTimeout(() => {
-      setPayments(prev => prev.map(p => 
-        p.id === paymentId ? { ...p, status: "approved" } : p
-      ));
+      setPayments((prev) =>
+        prev.map((p) => (p.id === paymentId ? { ...p, status: "approved" } : p))
+      );
       setIsProcessing(null);
       showSuccessToast("Payment approved successfully!");
       if (selectedPayment?.id === paymentId) {
-        setSelectedPayment(prev => ({ ...prev, status: "approved" }));
+        setSelectedPayment((prev) => ({ ...prev, status: "approved" }));
       }
     }, 1000);
   };
@@ -134,14 +136,22 @@ const Payments = () => {
     if (!rejectReason.trim()) return;
     setIsProcessing(rejectPaymentId);
     setTimeout(() => {
-      setPayments(prev => prev.map(p => 
-        p.id === rejectPaymentId ? { ...p, status: "rejected", rejectionReason: rejectReason } : p
-      ));
+      setPayments((prev) =>
+        prev.map((p) =>
+          p.id === rejectPaymentId
+            ? { ...p, status: "rejected", rejectionReason: rejectReason }
+            : p
+        )
+      );
       setIsProcessing(null);
       setShowRejectModal(false);
       showSuccessToast("Payment rejected!");
       if (selectedPayment?.id === rejectPaymentId) {
-        setSelectedPayment(prev => ({ ...prev, status: "rejected", rejectionReason: rejectReason }));
+        setSelectedPayment((prev) => ({
+          ...prev,
+          status: "rejected",
+          rejectionReason: rejectReason,
+        }));
       }
       setShowModal(false);
     }, 1000);
@@ -206,7 +216,9 @@ const Payments = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm opacity-80 mb-1">Pending</p>
-              <p className="text-xl md:text-3xl font-bold">{getPendingCount()}</p>
+              <p className="text-xl md:text-3xl font-bold">
+                {getPendingCount()}
+              </p>
             </div>
             <Clock className="w-8 h-8 md:w-10 md:h-10 opacity-80" />
           </div>
@@ -278,7 +290,12 @@ const Payments = () => {
                 <input
                   type="text"
                   value={upiSettings.upiId}
-                  onChange={(e) => setUpiSettings(prev => ({ ...prev, upiId: e.target.value }))}
+                  onChange={(e) =>
+                    setUpiSettings((prev) => ({
+                      ...prev,
+                      upiId: e.target.value,
+                    }))
+                  }
                   className="form-input flex-1"
                 />
                 <button
@@ -286,7 +303,11 @@ const Payments = () => {
                   className="btn btn-secondary"
                   title="Copy UPI ID"
                 >
-                  {copiedText === upiSettings.upiId ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  {copiedText === upiSettings.upiId ? (
+                    <Check className="w-4 h-4 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -299,12 +320,17 @@ const Payments = () => {
               <input
                 type="text"
                 value={upiSettings.accountName}
-                onChange={(e) => setUpiSettings(prev => ({ ...prev, accountName: e.target.value }))}
+                onChange={(e) =>
+                  setUpiSettings((prev) => ({
+                    ...prev,
+                    accountName: e.target.value,
+                  }))
+                }
                 className="form-input"
               />
             </div>
 
-            <button 
+            <button
               onClick={handleSaveSettings}
               disabled={isSaving}
               className="btn btn-primary w-full disabled:opacity-50"
@@ -360,7 +386,10 @@ const Payments = () => {
                 className="border-none bg-transparent text-sm w-full focus:outline-none"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="text-slate-400 hover:text-slate-600">
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="text-slate-400 hover:text-slate-600"
+                >
                   <X className="w-4 h-4" />
                 </button>
               )}
@@ -393,7 +422,11 @@ const Payments = () => {
                           className="text-slate-400 hover:text-slate-600"
                           title="Copy UTR"
                         >
-                          {copiedText === payment.utr ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                          {copiedText === payment.utr ? (
+                            <Check className="w-3 h-3 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -425,7 +458,7 @@ const Payments = () => {
                     </button>
                     {payment.status === "pending" && (
                       <>
-                        <button 
+                        <button
                           onClick={() => handleApprove(payment.id)}
                           disabled={isProcessing === payment.id}
                           className="btn btn-success text-xs disabled:opacity-50"
@@ -437,7 +470,7 @@ const Payments = () => {
                           )}
                           Approve
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleRejectClick(payment.id)}
                           disabled={isProcessing === payment.id}
                           className="btn btn-danger text-xs disabled:opacity-50"
@@ -531,7 +564,11 @@ const Payments = () => {
                     className="text-slate-500 hover:text-slate-700"
                     title="Copy UTR"
                   >
-                    {copiedText === selectedPayment.utr ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    {copiedText === selectedPayment.utr ? (
+                      <Check className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -565,7 +602,7 @@ const Payments = () => {
               {/* Actions */}
               {selectedPayment.status === "pending" && (
                 <div className="flex gap-4">
-                  <button 
+                  <button
                     onClick={() => handleApprove(selectedPayment.id)}
                     disabled={isProcessing === selectedPayment.id}
                     className="btn btn-success flex-1 disabled:opacity-50"
@@ -577,7 +614,7 @@ const Payments = () => {
                     )}
                     Approve Payment
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleRejectClick(selectedPayment.id)}
                     disabled={isProcessing === selectedPayment.id}
                     className="btn btn-danger flex-1 disabled:opacity-50"
@@ -598,8 +635,12 @@ const Payments = () => {
           <div className="bg-white rounded-2xl w-full max-w-md">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h3 className="text-xl font-bold text-slate-800">Reject Payment</h3>
-                <p className="text-sm text-slate-500">Please provide a reason</p>
+                <h3 className="text-xl font-bold text-slate-800">
+                  Reject Payment
+                </h3>
+                <p className="text-sm text-slate-500">
+                  Please provide a reason
+                </p>
               </div>
               <button
                 onClick={() => setShowRejectModal(false)}

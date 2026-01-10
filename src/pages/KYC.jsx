@@ -114,7 +114,8 @@ const KYC = () => {
       k.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       k.documentNumber.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDocument =
-      !documentFilter || k.documentType.toLowerCase().includes(documentFilter.toLowerCase());
+      !documentFilter ||
+      k.documentType.toLowerCase().includes(documentFilter.toLowerCase());
     return matchesTab && matchesSearch && matchesDocument;
   });
 
@@ -128,7 +129,9 @@ const KYC = () => {
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `kyc-${activeTab}-${new Date().toISOString().split("T")[0]}.json`;
+      link.download = `kyc-${activeTab}-${
+        new Date().toISOString().split("T")[0]
+      }.json`;
       link.click();
       URL.revokeObjectURL(url);
       setIsExporting(false);
@@ -199,7 +202,9 @@ const KYC = () => {
       rejected: <XCircle className="w-3 h-3" />,
     };
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${styles[status]}`}>
+      <span
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${styles[status]}`}
+      >
         {icons[status]}
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
@@ -302,7 +307,10 @@ const KYC = () => {
                 className="border-none bg-transparent text-sm w-full focus:outline-none"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="text-slate-400 hover:text-slate-600">
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="text-slate-400 hover:text-slate-600"
+                >
                   <X className="w-4 h-4" />
                 </button>
               )}
@@ -349,7 +357,9 @@ const KYC = () => {
                       {kyc.name.charAt(0)}
                     </div>
                     <div>
-                      <p className="font-semibold text-slate-800 text-sm">{kyc.name}</p>
+                      <p className="font-semibold text-slate-800 text-sm">
+                        {kyc.name}
+                      </p>
                       <p className="text-xs text-slate-500">{kyc.email}</p>
                     </div>
                   </div>
@@ -377,7 +387,8 @@ const KYC = () => {
                         disabled={processingId === kyc.id}
                         className="flex-1 py-2 px-3 bg-emerald-100 text-emerald-600 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 disabled:opacity-60"
                       >
-                        {processingId === kyc.id && processingAction === "approve" ? (
+                        {processingId === kyc.id &&
+                        processingAction === "approve" ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <CheckCircle className="w-4 h-4" />
@@ -480,7 +491,8 @@ const KYC = () => {
                               className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center hover:bg-emerald-200 transition-colors disabled:opacity-60"
                               title="Approve"
                             >
-                              {processingId === kyc.id && processingAction === "approve" ? (
+                              {processingId === kyc.id &&
+                              processingAction === "approve" ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <CheckCircle className="w-4 h-4" />
@@ -502,7 +514,10 @@ const KYC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
+                  <td
+                    colSpan={5}
+                    className="px-5 py-12 text-center text-slate-500"
+                  >
                     No KYC requests found
                   </td>
                 </tr>
@@ -635,30 +650,37 @@ const KYC = () => {
               <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
                 <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer">
                   <FileText className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
-                  <span className="text-[10px] md:text-xs text-slate-500">Front Side</span>
+                  <span className="text-[10px] md:text-xs text-slate-500">
+                    Front Side
+                  </span>
                 </div>
                 <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer">
                   <FileText className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
-                  <span className="text-[10px] md:text-xs text-slate-500">Back Side</span>
+                  <span className="text-[10px] md:text-xs text-slate-500">
+                    Back Side
+                  </span>
                 </div>
                 <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer">
                   <User className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
-                  <span className="text-[10px] md:text-xs text-slate-500">Selfie</span>
+                  <span className="text-[10px] md:text-xs text-slate-500">
+                    Selfie
+                  </span>
                 </div>
               </div>
 
               {/* Rejection Reason */}
-              {selectedKyc.status === "rejected" && selectedKyc.rejectionReason && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
-                  <div className="flex items-center gap-2 text-red-600 mb-2">
-                    <AlertCircle className="w-5 h-5" />
-                    <span className="font-semibold">Rejection Reason</span>
+              {selectedKyc.status === "rejected" &&
+                selectedKyc.rejectionReason && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
+                    <div className="flex items-center gap-2 text-red-600 mb-2">
+                      <AlertCircle className="w-5 h-5" />
+                      <span className="font-semibold">Rejection Reason</span>
+                    </div>
+                    <p className="text-sm text-red-700">
+                      {selectedKyc.rejectionReason}
+                    </p>
                   </div>
-                  <p className="text-sm text-red-700">
-                    {selectedKyc.rejectionReason}
-                  </p>
-                </div>
-              )}
+                )}
 
               {/* Actions */}
               {selectedKyc.status === "pending" && (
@@ -668,7 +690,8 @@ const KYC = () => {
                     disabled={processingId === selectedKyc.id}
                     className="btn btn-success flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
                   >
-                    {processingId === selectedKyc.id && processingAction === "approve" ? (
+                    {processingId === selectedKyc.id &&
+                    processingAction === "approve" ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Approving...
@@ -702,7 +725,9 @@ const KYC = () => {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-lg font-bold text-slate-800">Reject KYC</h3>
-                <p className="text-sm text-slate-500">Provide a reason for rejection</p>
+                <p className="text-sm text-slate-500">
+                  Provide a reason for rejection
+                </p>
               </div>
               <button
                 onClick={() => {
@@ -737,10 +762,13 @@ const KYC = () => {
               </button>
               <button
                 onClick={handleRejectConfirm}
-                disabled={!rejectReason.trim() || processingId === selectedKyc.id}
+                disabled={
+                  !rejectReason.trim() || processingId === selectedKyc.id
+                }
                 className="btn btn-danger flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {processingId === selectedKyc.id && processingAction === "reject" ? (
+                {processingId === selectedKyc.id &&
+                processingAction === "reject" ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Rejecting...
@@ -766,7 +794,9 @@ const KYC = () => {
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-sm">Success!</p>
-              <p className="text-xs text-emerald-100 truncate">{successMessage}</p>
+              <p className="text-xs text-emerald-100 truncate">
+                {successMessage}
+              </p>
             </div>
           </div>
         </div>
