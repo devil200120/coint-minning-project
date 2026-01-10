@@ -1,6 +1,8 @@
-const transporter = require('../config/email');
+const { getTransporter } = require('../config/email');
 
 const sendEmail = async (options) => {
+  const transporter = getTransporter();
+  
   const mailOptions = {
     from: `${process.env.APP_NAME || 'Mining App'} <${process.env.SMTP_EMAIL}>`,
     to: options.email,
