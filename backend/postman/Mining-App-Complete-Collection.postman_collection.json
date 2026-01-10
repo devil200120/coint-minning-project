@@ -388,7 +388,7 @@
           "request": {
             "method": "POST",
             "header": [{"key": "Authorization", "value": "Bearer {{userToken}}"}],
-            "body": {"mode": "formdata", "formdata": [{"key": "documentType", "value": "aadhaar", "type": "text"}, {"key": "documentNumber", "value": "123456789012", "type": "text"}, {"key": "frontImage", "type": "file"}, {"key": "backImage", "type": "file"}, {"key": "selfieImage", "type": "file"}]},
+            "body": {"mode": "formdata", "formdata": [{"key": "documentType", "value": "aadhaar", "type": "text"}, {"key": "documentNumber", "value": "123456789012", "type": "text"}, {"key": "documentFront", "type": "file"}, {"key": "documentBack", "type": "file"}, {"key": "selfie", "type": "file"}]},
             "url": {"raw": "{{baseUrl}}/api/kyc/submit", "host": ["{{baseUrl}}"], "path": ["api", "kyc", "submit"]}
           }
         },
