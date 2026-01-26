@@ -71,9 +71,9 @@ exports.getReferralStats = async (req, res) => {
     const activeReferrals = await Referral.countDocuments({ status: 'active' });
     const inactiveReferrals = await Referral.countDocuments({ status: 'inactive' });
 
-    // Total bonus distributed
+    // Total bonus distributed - using coinsEarned field
     const bonusResult = await Referral.aggregate([
-      { $group: { _id: null, total: { $sum: '$bonus' } } },
+      { $group: { _id: null, total: { $sum: '$coinsEarned' } } },
     ]);
     const totalBonusDistributed = bonusResult[0]?.total || 0;
 
@@ -84,10 +84,10 @@ exports.getReferralStats = async (req, res) => {
       createdAt: { $gte: weekAgo },
     });
 
-    // Top referrers
+    // Top referrers - using coinsEarned field
     const topReferrers = await Referral.aggregate([
       { $match: { type: 'direct' } },
-      { $group: { _id: '$referrer', count: { $sum: 1 }, totalBonus: { $sum: '$bonus' } } },
+      { $group: { _id: '$referrer', count: { $sum: 1 }, totalBonus: { $sum: '$coinsEarned' } } },
       { $sort: { count: -1 } },
       { $limit: 5 },
       {

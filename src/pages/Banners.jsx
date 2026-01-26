@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
+import AdminApi from "../services/api";
 import {
   Image,
   Plus,
@@ -10,34 +11,82 @@ import {
   X,
   GripVertical,
   Link2,
+  Loader2,
 } from "lucide-react";
 
 const Banners = () => {
   const [showModal, setShowModal] = useState(false);
   const [editBanner, setEditBanner] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [banners, setBanners] = useState([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    totalViews: 0,
+  });
 
-  const banners = [
-    {
-      id: 1,
-      title: "Welcome Bonus",
-      description: "Get 100 coins on signup!",
-      image: "/banner1.jpg",
-      link: "/bonus",
-      status: "active",
-      order: 1,
-      views: 12456,
-    },
-    {
-      id: 2,
-      title: "Referral Offer",
-      description: "Invite friends and earn 20% boost!",
-      image: "/banner2.jpg",
-      link: "/referral",
-      status: "active",
-      order: 2,
-      views: 8923,
-    },
-  ];
+  useEffect(() => {
+    fetchBanners();
+  }, []);
+
+  const fetchBanners = async () => {
+    try {
+      setLoading(true);
+      const response = await AdminApi.getBanners();
+
+      if (response.success) {
+        // API returns response.banners directly
+        const bannersData = response.banners || response.data?.banners || [];
+
+        const formattedBanners = bannersData.map((banner) => ({
+          id: banner._id,
+          title: banner.title,
+          description: banner.description,
+          image: banner.image,
+          link: banner.link || "",
+          status:
+            banner.status === "active" || banner.isActive
+              ? "active"
+              : "inactive",
+          order: banner.order || 1,
+          views: banner.views || 0,
+        }));
+
+        setBanners(formattedBanners);
+        setStats({
+          total: formattedBanners.length,
+          active: formattedBanners.filter((b) => b.status === "active").length,
+          totalViews: formattedBanners.reduce((acc, b) => acc + b.views, 0),
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching banners:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteBanner = async (bannerId) => {
+    if (!window.confirm("Are you sure you want to delete this banner?")) return;
+
+    try {
+      const response = await AdminApi.deleteBanner(bannerId);
+      if (response.success) {
+        fetchBanners();
+      }
+    } catch (error) {
+      console.error("Error deleting banner:", error);
+      alert("Failed to delete banner");
+    }
+  };
+
+  if (loading && banners.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -52,7 +101,9 @@ const Banners = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm text-slate-500 mb-1">Total</p>
-              <p className="text-lg md:text-2xl font-bold text-slate-800">2</p>
+              <p className="text-lg md:text-2xl font-bold text-slate-800">
+                {stats.total}
+              </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
               <Image className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
@@ -64,7 +115,7 @@ const Banners = () => {
             <div>
               <p className="text-xs md:text-sm text-slate-500 mb-1">Active</p>
               <p className="text-lg md:text-2xl font-bold text-emerald-600">
-                2
+                {stats.active}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
@@ -77,7 +128,9 @@ const Banners = () => {
             <div>
               <p className="text-xs md:text-sm text-slate-500 mb-1">Views</p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                21.3K
+                {stats.totalViews >= 1000
+                  ? `${(stats.totalViews / 1000).toFixed(1)}K`
+                  : stats.totalViews}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">

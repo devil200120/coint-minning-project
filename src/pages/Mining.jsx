@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
+import AdminApi from "../services/api";
 import {
   Coins,
   Clock,
@@ -13,6 +14,9 @@ import {
   Save,
   CheckCircle,
   X,
+  Loader2,
+  Users,
+  XCircle,
 } from "lucide-react";
 import {
   AreaChart,
@@ -28,118 +32,209 @@ import {
 } from "recharts";
 
 const Mining = () => {
-  // Mining Configuration State
+  // Loading states
+  const [loading, setLoading] = useState(true);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [actionMessage, setActionMessage] = useState({ type: "", message: "" });
+
+  // Data states
+  const [stats, setStats] = useState({
+    activeSessions: 0,
+    coinsToday: 0,
+    avgRate: 0.25,
+    totalMined: 0,
+  });
+  const [miningSessions, setMiningSessions] = useState([]);
   const [config, setConfig] = useState({
     cycleDuration: 24,
     baseRate: 0.25,
     boostRate: 20,
+    maxCoinsPerCycle: 6,
   });
-  const [isSaving, setIsSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  // Active Mining Users State
-  const [miningUsers, setMiningUsers] = useState([
-    {
-      id: 1,
-      name: "Rajesh Vaishnav",
-      progress: 75,
-      rate: "0.25/hr",
-      timeRemaining: "6:00:00",
-      status: "mining",
-    },
-    {
-      id: 2,
-      name: "Amit Kumar",
-      progress: 45,
-      rate: "0.35/hr",
-      timeRemaining: "13:15:00",
-      status: "mining",
-    },
-    {
-      id: 3,
-      name: "Priya Singh",
-      progress: 92,
-      rate: "0.25/hr",
-      timeRemaining: "2:00:00",
-      status: "mining",
-    },
-    {
-      id: 4,
-      name: "Rahul Sharma",
-      progress: 100,
-      rate: "0.50/hr",
-      timeRemaining: "0:00:00",
-      status: "completed",
-    },
-    {
-      id: 5,
-      name: "Sneha Patel",
-      progress: 30,
-      rate: "0.25/hr",
-      timeRemaining: "16:48:00",
-      status: "mining",
-    },
+  const [miningData, setMiningData] = useState([
+    { hour: "00:00", coins: 0 },
+    { hour: "04:00", coins: 0 },
+    { hour: "08:00", coins: 0 },
+    { hour: "12:00", coins: 0 },
+    { hour: "16:00", coins: 0 },
+    { hour: "20:00", coins: 0 },
+    { hour: "24:00", coins: 0 },
   ]);
-
-  // Save Configuration Handler
-  const handleSaveConfig = () => {
-    setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSaving(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 1000);
-  };
-
-  // Toggle Mining Status
-  const toggleMiningStatus = (userId) => {
-    setMiningUsers((users) =>
-      users.map((user) =>
-        user.id === userId
-          ? { ...user, status: user.status === "mining" ? "paused" : "mining" }
-          : user
-      )
-    );
-  };
-
-  // Reset User Mining
-  const resetUserMining = (userId) => {
-    setMiningUsers((users) =>
-      users.map((user) =>
-        user.id === userId
-          ? {
-              ...user,
-              progress: 0,
-              timeRemaining: `${config.cycleDuration}:00:00`,
-              status: "mining",
-            }
-          : user
-      )
-    );
-  };
-
-  // Refresh All Sessions
-  const refreshSessions = () => {
-    // Simulate refresh - in real app, this would fetch from API
-    setMiningUsers((users) => [...users]);
-  };
-
-  const miningData = [
-    { hour: "00:00", coins: 120 },
-    { hour: "04:00", coins: 150 },
-    { hour: "08:00", coins: 280 },
-    { hour: "12:00", coins: 420 },
-    { hour: "16:00", coins: 380 },
-    { hour: "20:00", coins: 520 },
-    { hour: "24:00", coins: 450 },
-  ];
-
-  const levelDistribution = [
+  const [levelDistribution, setLevelDistribution] = useState([
     { name: "Base Level", value: 60, color: "#ef4444" },
     { name: "Referral Level", value: 25, color: "#fbbf24" },
     { name: "Boost Level", value: 15, color: "#22c55e" },
-  ];
+  ]);
+
+  // Fetch all data on mount
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const fetchAllData = async () => {
+    setLoading(true);
+    await Promise.all([fetchStats(), fetchSettings(), fetchSessions()]);
+    setLoading(false);
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await AdminApi.getMiningStats();
+      if (response.success && response.stats) {
+        setStats({
+          activeSessions: response.stats.active || 0,
+          coinsToday: response.stats.todayMinedCoins || 0,
+          avgRate: 0.25,
+          totalMined: response.stats.totalMinedCoins || 0,
+        });
+
+        // Update hourly chart data
+        if (response.stats.hourlyData && response.stats.hourlyData.length > 0) {
+          setMiningData(response.stats.hourlyData);
+        }
+
+        // Update level distribution pie chart
+        if (
+          response.stats.levelDistribution &&
+          response.stats.levelDistribution.length > 0
+        ) {
+          setLevelDistribution(response.stats.levelDistribution);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching mining stats:", error);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const response = await AdminApi.getMiningSettings();
+      if (response.success && response.settings) {
+        setConfig({
+          cycleDuration: response.settings.miningCycleDuration || 24,
+          baseRate: response.settings.miningRate || 0.25,
+          boostRate: response.settings.referralBoostPercent || 20,
+          maxCoinsPerCycle: response.settings.maxCoinsPerCycle || 6,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching mining settings:", error);
+    }
+  };
+
+  const fetchSessions = async () => {
+    try {
+      setSessionsLoading(true);
+      const response = await AdminApi.getMiningSessions({
+        limit: 20,
+        status: "active",
+      });
+      if (response.success) {
+        const sessions = response.sessions || [];
+        const formattedSessions = sessions.map((session) => {
+          const startTime = new Date(session.startTime);
+          const now = new Date();
+          const elapsedHours = (now - startTime) / (1000 * 60 * 60);
+          const cycleDuration = config.cycleDuration || 24;
+          const progress = Math.min(
+            100,
+            Math.round((elapsedHours / cycleDuration) * 100),
+          );
+
+          const remainingHours = Math.max(0, cycleDuration - elapsedHours);
+          const hours = Math.floor(remainingHours);
+          const minutes = Math.floor((remainingHours - hours) * 60);
+          const seconds = Math.floor(
+            ((remainingHours - hours) * 60 - minutes) * 60,
+          );
+          const timeRemaining = `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+          return {
+            id: session._id,
+            name: session.user?.name || "Unknown User",
+            email: session.user?.email || "",
+            progress: progress,
+            rate: `${session.rate || config.baseRate}/hr`,
+            timeRemaining: timeRemaining,
+            status: session.status || "active",
+            earnedCoins: session.earnedCoins || 0,
+          };
+        });
+        setMiningSessions(formattedSessions);
+      }
+    } catch (error) {
+      console.error("Error fetching mining sessions:", error);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const showMessage = (type, message) => {
+    setActionMessage({ type, message });
+    setTimeout(() => setActionMessage({ type: "", message: "" }), 3000);
+  };
+
+  const handleSaveConfig = async () => {
+    setIsSaving(true);
+    try {
+      const response = await AdminApi.updateMiningSettings({
+        miningCycleDuration: config.cycleDuration,
+        miningRate: config.baseRate,
+        referralBoostPercent: config.boostRate,
+        maxCoinsPerCycle: config.maxCoinsPerCycle,
+      });
+      if (response.success) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error("Error saving config:", error);
+      showMessage("error", "Failed to save configuration");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelSession = async (sessionId) => {
+    if (!window.confirm("Are you sure you want to cancel this mining session?"))
+      return;
+
+    try {
+      const response = await AdminApi.cancelMiningSession(
+        sessionId,
+        "Cancelled by admin",
+      );
+      if (response.success) {
+        showMessage("success", "Mining session cancelled");
+        fetchSessions();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error("Error cancelling session:", error);
+      showMessage("error", "Failed to cancel session");
+    }
+  };
+
+  const refreshSessions = () => {
+    fetchSessions();
+    fetchStats();
+  };
+
+  const formatNumber = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toLocaleString();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 md:space-y-6 overflow-x-hidden">
@@ -147,6 +242,26 @@ const Mining = () => {
         title="Mining Status"
         subtitle="Monitor 24-hour mining cycles and activity"
       />
+
+      {/* Action Message Toast */}
+      {actionMessage.message && (
+        <div
+          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 ${actionMessage.type === "error" ? "bg-red-500" : "bg-emerald-500"} text-white rounded-xl shadow-lg animate-in slide-in-from-top-2`}
+        >
+          {actionMessage.type === "error" ? (
+            <XCircle className="w-5 h-5" />
+          ) : (
+            <CheckCircle className="w-5 h-5" />
+          )}
+          <span className="font-medium">{actionMessage.message}</span>
+          <button
+            onClick={() => setActionMessage({ type: "", message: "" })}
+            className="ml-2 hover:bg-white/20 rounded p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Success Toast */}
       {showSuccess && (
@@ -170,7 +285,9 @@ const Mining = () => {
               <p className="text-xs md:text-sm opacity-80 mb-1">
                 Active Sessions
               </p>
-              <p className="text-xl md:text-3xl font-bold">8,234</p>
+              <p className="text-xl md:text-3xl font-bold">
+                {formatNumber(stats.activeSessions)}
+              </p>
             </div>
             <Activity className="w-8 h-8 md:w-10 md:h-10 opacity-80" />
           </div>
@@ -182,7 +299,7 @@ const Mining = () => {
                 Coins Today
               </p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                45,678
+                {formatNumber(stats.coinsToday)}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
@@ -195,7 +312,7 @@ const Mining = () => {
             <div>
               <p className="text-xs md:text-sm text-slate-500 mb-1">Avg Rate</p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                0.30/hr
+                {config.baseRate}/hr
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
@@ -206,9 +323,11 @@ const Mining = () => {
         <div className="card p-3 md:p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs md:text-sm text-slate-500 mb-1">Cycle</p>
+              <p className="text-xs md:text-sm text-slate-500 mb-1">
+                Total Mined
+              </p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                1hr/rate
+                {formatNumber(stats.totalMined)}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
@@ -399,145 +518,149 @@ const Mining = () => {
             <h2 className="text-lg font-semibold text-slate-800">
               Active Mining Sessions
             </h2>
-            <p className="text-sm text-slate-500">Real-time mining progress</p>
+            <p className="text-sm text-slate-500">
+              Real-time mining progress ({miningSessions.length} active)
+            </p>
           </div>
           <button
             onClick={refreshSessions}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition-all"
+            disabled={sessionsLoading}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition-all disabled:opacity-50"
           >
-            <RotateCcw className="w-4 h-4" />
+            {sessionsLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RotateCcw className="w-4 h-4" />
+            )}
             Refresh
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px]">
-            <thead>
-              <tr className="bg-slate-50">
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
-                  User
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
-                  Progress
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
-                  Rate
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
-                  Time Remaining
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
-                  Status
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {miningUsers.map((user) => (
-                <tr
-                  key={user.id}
-                  className="border-b border-slate-100 hover:bg-slate-50"
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
-                        {user.name.charAt(0)}
-                      </div>
-                      <span className="font-semibold text-slate-800">
-                        {user.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            user.progress === 100
-                              ? "bg-emerald-500"
-                              : user.status === "paused"
-                              ? "bg-slate-400"
-                              : "bg-gradient-to-r from-amber-500 to-orange-500"
-                          }`}
-                          style={{ width: `${user.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium text-slate-600">
-                        {user.progress}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="px-3 py-1 bg-amber-100 text-amber-700 text-sm font-medium rounded-lg">
-                      {user.rate}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-slate-400" />
-                      <span className="font-medium text-slate-800">
-                        {user.timeRemaining}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                        user.status === "mining"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : user.status === "completed"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {user.status === "mining" ? (
-                        <Activity className="w-3 h-3" />
-                      ) : user.status === "completed" ? (
-                        <CheckCircle className="w-3 h-3" />
-                      ) : (
-                        <Pause className="w-3 h-3" />
-                      )}
-                      {user.status.charAt(0).toUpperCase() +
-                        user.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex gap-2">
-                      {user.status !== "completed" && (
-                        <button
-                          onClick={() => toggleMiningStatus(user.id)}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:scale-110 ${
-                            user.status === "mining"
-                              ? "bg-red-100 text-red-600 hover:bg-red-200"
-                              : "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
-                          }`}
-                          title={
-                            user.status === "mining"
-                              ? "Pause Mining"
-                              : "Resume Mining"
-                          }
-                        >
-                          {user.status === "mining" ? (
-                            <Pause className="w-4 h-4" />
-                          ) : (
-                            <Play className="w-4 h-4" />
-                          )}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => resetUserMining(user.id)}
-                        className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition-all hover:scale-110"
-                        title="Reset Mining Cycle"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          {sessionsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            </div>
+          ) : miningSessions.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+              <p>No active mining sessions</p>
+            </div>
+          ) : (
+            <table className="w-full min-w-[700px]">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                    User
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                    Progress
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                    Rate
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                    Time Remaining
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                    Status
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {miningSessions.map((session) => (
+                  <tr
+                    key={session.id}
+                    className="border-b border-slate-100 hover:bg-slate-50"
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
+                          {session.name.charAt(0)}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-800 block">
+                            {session.name}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {session.email}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              session.progress === 100
+                                ? "bg-emerald-500"
+                                : session.status === "paused"
+                                  ? "bg-slate-400"
+                                  : "bg-gradient-to-r from-amber-500 to-orange-500"
+                            }`}
+                            style={{ width: `${session.progress}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-slate-600">
+                          {session.progress}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="px-3 py-1 bg-amber-100 text-amber-700 text-sm font-medium rounded-lg">
+                        {config.baseRate}/hr
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-slate-400" />
+                        <span className="font-medium text-slate-800">
+                          {session.timeRemaining}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                          session.status === "active"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : session.status === "completed"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {session.status === "active" ? (
+                          <Activity className="w-3 h-3" />
+                        ) : session.status === "completed" ? (
+                          <CheckCircle className="w-3 h-3" />
+                        ) : (
+                          <Pause className="w-3 h-3" />
+                        )}
+                        {session.status.charAt(0).toUpperCase() +
+                          session.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex gap-2">
+                        {session.status === "active" && (
+                          <button
+                            onClick={() => handleCancelSession(session.id)}
+                            className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition-all hover:scale-110"
+                            title="Cancel Mining Session"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

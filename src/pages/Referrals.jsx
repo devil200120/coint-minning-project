@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
+import AdminApi from "../services/api";
 import {
   Search,
   UserPlus,
@@ -25,13 +26,135 @@ const Referrals = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [referralData, setReferralData] = useState([]);
+  const [stats, setStats] = useState({
+    totalReferrals: 0,
+    directReferrals: 0,
+    indirectReferrals: 0,
+    totalCoinsDistributed: 0,
+  });
+  const [topLeaders, setTopLeaders] = useState([]);
 
   // Referral commission settings
   const [settings, setSettings] = useState({
-    directBonus: 50, // Coins for direct referral (1 chain)
-    indirectBonus: 20, // Coins for indirect referrals (2+ chains) - same for all
-    signupBonus: 100, // Bonus for new user who signs up via referral
+    directBonus: 50,
+    indirectBonus: 20,
+    signupBonus: 100,
   });
+
+  useEffect(() => {
+    fetchReferrals();
+    fetchStats();
+    fetchSettings();
+  }, []);
+
+  const fetchReferrals = async () => {
+    try {
+      setLoading(true);
+      const response = await AdminApi.getReferrals({ limit: 100 });
+
+      if (response.success) {
+        const referralsData = response.referrals || [];
+
+        // Group referrals by referrer to create a user-centric view
+        const userReferralMap = {};
+
+        referralsData.forEach((ref) => {
+          const referrerId = ref.referrer?._id;
+          if (!referrerId) return;
+
+          if (!userReferralMap[referrerId]) {
+            userReferralMap[referrerId] = {
+              id: referrerId,
+              name: ref.referrer?.name || "Unknown",
+              email: ref.referrer?.email || "N/A",
+              referralCode: ref.referrer?.referralCode || "",
+              directReferrals: 0,
+              indirectReferrals: 0,
+              totalReferrals: 0,
+              coinsEarned: 0,
+              team: [],
+            };
+          }
+
+          const type = ref.type || "direct";
+          if (type === "direct") {
+            userReferralMap[referrerId].directReferrals++;
+          } else {
+            userReferralMap[referrerId].indirectReferrals++;
+          }
+          userReferralMap[referrerId].totalReferrals++;
+          userReferralMap[referrerId].coinsEarned += ref.coinsEarned || 0;
+
+          userReferralMap[referrerId].team.push({
+            name: ref.referred?.name || "Unknown",
+            status: ref.referred?.status || ref.status || "active",
+            joined: ref.createdAt,
+            type: type,
+            coinsGenerated: ref.coinsEarned || 0,
+          });
+        });
+
+        const formattedData = Object.values(userReferralMap).sort(
+          (a, b) => b.totalReferrals - a.totalReferrals,
+        );
+
+        setReferralData(formattedData);
+      }
+    } catch (error) {
+      console.error("Error fetching referrals:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await AdminApi.getReferralStats();
+      if (response.success && response.stats) {
+        setStats({
+          totalReferrals: response.stats.total || 0,
+          directReferrals: response.stats.direct || 0,
+          indirectReferrals: response.stats.indirect || 0,
+          totalCoinsDistributed: response.stats.totalBonusDistributed || 0,
+        });
+
+        // Set top leaders from stats
+        if (
+          response.stats.topReferrers &&
+          response.stats.topReferrers.length > 0
+        ) {
+          setTopLeaders(
+            response.stats.topReferrers.map((leader, idx) => ({
+              rank: idx + 1,
+              name: leader.name || "Unknown",
+              directRefs: leader.count || 0,
+              totalRefs: leader.count || 0,
+              coinsEarned: leader.totalBonus || 0,
+            })),
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching referral stats:", error);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const response = await AdminApi.getReferralSettings();
+      if (response.success && response.settings) {
+        setSettings({
+          directBonus: response.settings.directReferralBonus || 50,
+          indirectBonus: response.settings.indirectReferralBonus || 20,
+          signupBonus: response.settings.signupBonus || 100,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching referral settings:", error);
+    }
+  };
 
   const handleSettingsChange = (field, value) => {
     setSettings((prev) => ({
@@ -40,168 +163,52 @@ const Referrals = () => {
     }));
   };
 
-  const handleUpdateSettings = () => {
+  const handleUpdateSettings = async () => {
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await AdminApi.updateReferralSettings({
+        directReferralBonus: settings.directBonus,
+        indirectReferralBonus: settings.indirectBonus,
+        signupBonus: settings.signupBonus,
+      });
+      if (response.success) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      alert("Failed to update settings");
+    } finally {
       setIsSaving(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 1500);
+    }
   };
 
-  const referralData = [
-    {
-      id: 1,
-      name: "Rajesh Vaishnav",
-      email: "rajesh@gmail.com",
-      referredBy: null,
-      totalReferrals: 15,
-      directReferrals: 5,
-      indirectReferrals: 10,
-      coinsEarned: 450,
-      team: [
-        {
-          name: "Amit Kumar",
-          status: "active",
-          joined: "2024-01-10",
-          type: "direct",
-          coinsGenerated: 50,
-        },
-        {
-          name: "Priya Singh",
-          status: "inactive",
-          joined: "2024-01-15",
-          type: "direct",
-          coinsGenerated: 50,
-        },
-        {
-          name: "Rahul Sharma",
-          status: "active",
-          joined: "2024-01-18",
-          type: "direct",
-          coinsGenerated: 50,
-        },
-        {
-          name: "Sneha Patel",
-          status: "active",
-          joined: "2024-01-20",
-          type: "indirect",
-          coinsGenerated: 20,
-        },
-        {
-          name: "Vikram Singh",
-          status: "inactive",
-          joined: "2024-01-22",
-          type: "indirect",
-          coinsGenerated: 20,
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: "Amit Kumar",
-      email: "amit@gmail.com",
-      referredBy: "Rajesh Vaishnav",
-      totalReferrals: 8,
-      directReferrals: 3,
-      indirectReferrals: 5,
-      coinsEarned: 230,
-      team: [
-        {
-          name: "Neha Gupta",
-          status: "active",
-          joined: "2024-01-12",
-          type: "direct",
-          coinsGenerated: 50,
-        },
-        {
-          name: "Karan Mehta",
-          status: "active",
-          joined: "2024-01-14",
-          type: "direct",
-          coinsGenerated: 50,
-        },
-        {
-          name: "Ravi Kumar",
-          status: "active",
-          joined: "2024-01-16",
-          type: "indirect",
-          coinsGenerated: 20,
-        },
-      ],
-    },
-    {
-      id: 3,
-      name: "Priya Singh",
-      email: "priya@gmail.com",
-      referredBy: "Rajesh Vaishnav",
-      totalReferrals: 3,
-      directReferrals: 2,
-      indirectReferrals: 1,
-      coinsEarned: 120,
-      team: [
-        {
-          name: "Ravi Kumar",
-          status: "inactive",
-          joined: "2024-01-25",
-          type: "direct",
-          coinsGenerated: 50,
-        },
-        {
-          name: "Sanjay Patel",
-          status: "active",
-          joined: "2024-01-26",
-          type: "direct",
-          coinsGenerated: 50,
-        },
-      ],
-    },
-  ];
+  // Format coins number for display
+  const formatCoins = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toLocaleString();
+  };
 
-  const topLeaders = [
-    {
-      rank: 1,
-      name: "Vikram Singh",
-      directRefs: 45,
-      totalRefs: 125,
-      coinsEarned: 2850,
-    },
-    {
-      rank: 2,
-      name: "Rahul Sharma",
-      directRefs: 38,
-      totalRefs: 98,
-      coinsEarned: 2180,
-    },
-    {
-      rank: 3,
-      name: "Amit Kumar",
-      directRefs: 25,
-      totalRefs: 75,
-      coinsEarned: 1650,
-    },
-    {
-      rank: 4,
-      name: "Priya Singh",
-      directRefs: 22,
-      totalRefs: 62,
-      coinsEarned: 1320,
-    },
-    {
-      rank: 5,
-      name: "Sneha Patel",
-      directRefs: 18,
-      totalRefs: 55,
-      coinsEarned: 1150,
-    },
-  ];
+  // Default top leaders if none from API
+  const displayLeaders =
+    topLeaders.length > 0
+      ? topLeaders
+      : [
+          {
+            rank: 1,
+            name: "No data",
+            directRefs: 0,
+            totalRefs: 0,
+            coinsEarned: 0,
+          },
+        ];
 
   const filteredReferrals = referralData.filter(
     (user) =>
       searchQuery === "" ||
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -220,7 +227,7 @@ const Referrals = () => {
                 Total Referrals
               </p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                4,521
+                {stats.totalReferrals.toLocaleString()}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
@@ -235,7 +242,7 @@ const Referrals = () => {
                 Direct (L1)
               </p>
               <p className="text-lg md:text-2xl font-bold text-emerald-600">
-                1,856
+                {stats.directReferrals.toLocaleString()}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
@@ -250,7 +257,7 @@ const Referrals = () => {
                 Indirect (L2-L5)
               </p>
               <p className="text-lg md:text-2xl font-bold text-amber-600">
-                2,665
+                {stats.indirectReferrals.toLocaleString()}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
@@ -265,7 +272,7 @@ const Referrals = () => {
                 Coins Given
               </p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                185K
+                {formatCoins(stats.totalCoinsDistributed)}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
@@ -418,39 +425,51 @@ const Referrals = () => {
             </p>
           </div>
           <div className="p-5">
-            {topLeaders.map((leader, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
-                    leader.rank === 1
-                      ? "bg-gradient-to-br from-amber-400 to-yellow-500"
-                      : leader.rank === 2
-                      ? "bg-gradient-to-br from-slate-300 to-slate-400"
-                      : leader.rank === 3
-                      ? "bg-gradient-to-br from-orange-400 to-amber-600"
-                      : "bg-slate-200 text-slate-600"
-                  }`}
-                >
-                  {leader.rank}
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-800">{leader.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {leader.directRefs} direct • {leader.totalRefs} total
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-amber-600 flex items-center gap-1">
-                    <Coins className="w-4 h-4" />
-                    {leader.coinsEarned}
-                  </p>
-                  <p className="text-xs text-slate-500">coins earned</p>
-                </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
               </div>
-            ))}
+            ) : displayLeaders.length === 0 ? (
+              <p className="text-center text-slate-500 py-8">
+                No referral data yet
+              </p>
+            ) : (
+              displayLeaders.map((leader, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
+                      leader.rank === 1
+                        ? "bg-gradient-to-br from-amber-400 to-yellow-500"
+                        : leader.rank === 2
+                          ? "bg-gradient-to-br from-slate-300 to-slate-400"
+                          : leader.rank === 3
+                            ? "bg-gradient-to-br from-orange-400 to-amber-600"
+                            : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {leader.rank}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-800">
+                      {leader.name}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {leader.directRefs} direct • {leader.totalRefs} total
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-amber-600 flex items-center gap-1">
+                      <Coins className="w-4 h-4" />
+                      {leader.coinsEarned}
+                    </p>
+                    <p className="text-xs text-slate-500">coins earned</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -477,135 +496,158 @@ const Referrals = () => {
             </div>
           </div>
           <div className="divide-y divide-slate-100">
-            {filteredReferrals.map((user) => (
-              <div key={user.id} className="p-4 md:p-5">
-                <div
-                  className="flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
-                  onClick={() =>
-                    setExpandedUser(expandedUser === user.id ? null : user.id)
-                  }
-                >
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-bold shrink-0">
-                      {user.name.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        {user.name}
-                      </p>
-                      <p className="text-xs md:text-sm text-slate-500">
-                        {user.email}
-                      </p>
-                      {user.referredBy && (
-                        <p className="text-xs text-blue-500">
-                          Referred by: {user.referredBy}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+              </div>
+            ) : filteredReferrals.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p>No referral data found</p>
+              </div>
+            ) : (
+              filteredReferrals.map((user) => (
+                <div key={user.id} className="p-4 md:p-5">
+                  <div
+                    className="flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
+                    onClick={() =>
+                      setExpandedUser(expandedUser === user.id ? null : user.id)
+                    }
+                  >
+                    <div className="flex items-center gap-3 md:gap-4">
+                      <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-bold shrink-0">
+                        {user.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800">
+                          {user.name}
                         </p>
+                        <p className="text-xs md:text-sm text-slate-500">
+                          {user.email}
+                        </p>
+                        {user.referralCode && (
+                          <p className="text-xs text-blue-500">
+                            Code: {user.referralCode}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between md:gap-4 lg:gap-6">
+                      <div className="flex gap-4 md:gap-6">
+                        <div className="text-center">
+                          <p className="text-base md:text-lg font-bold text-emerald-600">
+                            {user.directReferrals}
+                          </p>
+                          <p className="text-[10px] md:text-xs text-slate-500">
+                            Direct
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-base md:text-lg font-bold text-blue-600">
+                            {user.indirectReferrals}
+                          </p>
+                          <p className="text-[10px] md:text-xs text-slate-500">
+                            Indirect
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-base md:text-lg font-bold text-amber-600 flex items-center gap-1">
+                            <Coins className="w-4 h-4" />
+                            {user.coinsEarned}
+                          </p>
+                          <p className="text-[10px] md:text-xs text-slate-500">
+                            Earned
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button className="btn btn-secondary text-xs hidden sm:flex">
+                          <Bell className="w-4 h-4" />
+                          <span className="hidden lg:inline">Ping</span>
+                        </button>
+                        <ChevronDown
+                          className={`w-5 h-5 text-slate-400 transition-transform ${
+                            expandedUser === user.id ? "rotate-180" : ""
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded Team View */}
+                  {expandedUser === user.id && (
+                    <div className="mt-4 ml-0 md:ml-16 p-4 bg-slate-50 rounded-xl">
+                      <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                        Referral Chain ({user.team.length} members)
+                      </h4>
+                      {user.team.length === 0 ? (
+                        <p className="text-sm text-slate-500 text-center py-4">
+                          No team members yet
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {user.team.map((member, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-3 bg-white rounded-lg"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-gradient-to-br from-slate-400 to-slate-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                  {member.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-800">
+                                    {member.name}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {member.joined
+                                      ? new Date(
+                                          member.joined,
+                                        ).toLocaleDateString()
+                                      : "N/A"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                    member.type === "direct"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {member.type === "direct"
+                                    ? "Direct"
+                                    : "Indirect"}
+                                </span>
+                                <span className="text-xs font-medium text-amber-600 flex items-center gap-1">
+                                  <Coins className="w-3 h-3" />+
+                                  {member.coinsGenerated}
+                                </span>
+                                <span
+                                  className={`status-badge ${
+                                    member.status === "active"
+                                      ? "status-active"
+                                      : "status-inactive"
+                                  }`}
+                                >
+                                  {member.status === "active" ? (
+                                    <CheckCircle className="w-3 h-3" />
+                                  ) : (
+                                    <XCircle className="w-3 h-3" />
+                                  )}
+                                  {member.status}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between md:gap-4 lg:gap-6">
-                    <div className="flex gap-4 md:gap-6">
-                      <div className="text-center">
-                        <p className="text-base md:text-lg font-bold text-emerald-600">
-                          {user.directReferrals}
-                        </p>
-                        <p className="text-[10px] md:text-xs text-slate-500">
-                          Direct
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-base md:text-lg font-bold text-blue-600">
-                          {user.indirectReferrals}
-                        </p>
-                        <p className="text-[10px] md:text-xs text-slate-500">
-                          Indirect
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-base md:text-lg font-bold text-amber-600 flex items-center gap-1">
-                          <Coins className="w-4 h-4" />
-                          {user.coinsEarned}
-                        </p>
-                        <p className="text-[10px] md:text-xs text-slate-500">
-                          Earned
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button className="btn btn-secondary text-xs hidden sm:flex">
-                        <Bell className="w-4 h-4" />
-                        <span className="hidden lg:inline">Ping</span>
-                      </button>
-                      <ChevronDown
-                        className={`w-5 h-5 text-slate-400 transition-transform ${
-                          expandedUser === user.id ? "rotate-180" : ""
-                        }`}
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
-
-                {/* Expanded Team View */}
-                {expandedUser === user.id && (
-                  <div className="mt-4 ml-0 md:ml-16 p-4 bg-slate-50 rounded-xl">
-                    <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                      Referral Chain ({user.team.length} members)
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {user.team.map((member, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-3 bg-white rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gradient-to-br from-slate-400 to-slate-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                              {member.name.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-800">
-                                {member.name}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                {member.joined}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                member.type === "direct"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-blue-100 text-blue-700"
-                              }`}
-                            >
-                              {member.type === "direct" ? "Direct" : "Indirect"}
-                            </span>
-                            <span className="text-xs font-medium text-amber-600 flex items-center gap-1">
-                              <Coins className="w-3 h-3" />+
-                              {member.coinsGenerated}
-                            </span>
-                            <span
-                              className={`status-badge ${
-                                member.status === "active"
-                                  ? "status-active"
-                                  : "status-inactive"
-                              }`}
-                            >
-                              {member.status === "active" ? (
-                                <CheckCircle className="w-3 h-3" />
-                              ) : (
-                                <XCircle className="w-3 h-3" />
-                              )}
-                              {member.status}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -657,7 +699,7 @@ const Referrals = () => {
                   onChange={(e) =>
                     handleSettingsChange(
                       "indirectBonus",
-                      Number(e.target.value)
+                      Number(e.target.value),
                     )
                   }
                   className="form-input"

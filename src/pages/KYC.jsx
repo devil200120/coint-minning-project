@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
+import AdminApi from "../services/api";
 import {
   Shield,
   Search,
@@ -35,80 +36,103 @@ const KYC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [kycRequests, setKycRequests] = useState([]);
+  const [pagination, setPagination] = useState({
+    totalPages: 1,
+    total: 0,
+  });
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+  });
 
-  const [kycRequests, setKycRequests] = useState([
-    {
-      id: 1,
-      name: "Rajesh Vaishnav",
-      email: "rajesh@gmail.com",
-      phone: "+91 98765 43210",
-      status: "pending",
-      submitted: "2024-01-25",
-      documentType: "Aadhar Card",
-      documentNumber: "XXXX-XXXX-1234",
-      address: "Mumbai, Maharashtra",
-      dob: "1990-05-15",
-      frontImage: "aadhar_front.jpg",
-      backImage: "aadhar_back.jpg",
-      selfie: "selfie.jpg",
-    },
-    {
-      id: 2,
-      name: "Amit Kumar",
-      email: "amit@gmail.com",
-      phone: "+91 87654 32109",
-      status: "pending",
-      submitted: "2024-01-24",
-      documentType: "PAN Card",
-      documentNumber: "ABCDE1234F",
-      address: "Delhi, India",
-      dob: "1988-08-22",
-      frontImage: "pan_front.jpg",
-      backImage: null,
-      selfie: "selfie.jpg",
-    },
-    {
-      id: 3,
-      name: "Priya Singh",
-      email: "priya@gmail.com",
-      phone: "+91 76543 21098",
-      status: "verified",
-      submitted: "2024-01-20",
-      documentType: "Aadhar Card",
-      documentNumber: "XXXX-XXXX-5678",
-      address: "Bangalore, Karnataka",
-      dob: "1995-03-10",
-    },
-    {
-      id: 4,
-      name: "Rahul Sharma",
-      email: "rahul@gmail.com",
-      phone: "+91 65432 10987",
-      status: "rejected",
-      submitted: "2024-01-18",
-      documentType: "Voter ID",
-      documentNumber: "ABC1234567",
-      address: "Chennai, Tamil Nadu",
-      dob: "1992-11-28",
-      rejectionReason: "Document image not clear",
-    },
-    {
-      id: 5,
-      name: "Sneha Patel",
-      email: "sneha@gmail.com",
-      phone: "+91 54321 09876",
-      status: "pending",
-      submitted: "2024-01-26",
-      documentType: "Passport",
-      documentNumber: "J12345678",
-      address: "Ahmedabad, Gujarat",
-      dob: "1993-07-20",
-    },
-  ]);
+  useEffect(() => {
+    fetchKYCStats();
+  }, []);
 
-  // Filter by tab, search, and document type
+  useEffect(() => {
+    fetchKYCRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, currentPage]);
+
+  const fetchKYCStats = async () => {
+    try {
+      const response = await AdminApi.getKYCStats();
+      if (response.success) {
+        setStats(response.stats);
+      }
+    } catch (error) {
+      console.error("Error fetching KYC stats:", error);
+    }
+  };
+
+  const fetchKYCRequests = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: currentPage,
+        limit: 10,
+        status: activeTab !== "all" ? activeTab : undefined,
+      };
+
+      const response = await AdminApi.getKYCList(params);
+
+      if (response.success) {
+        // API returns response.kycRequests directly, not response.data.kycRequests
+        const kycData =
+          response.kycRequests || response.data?.kycRequests || [];
+        const paginationData =
+          response.pagination || response.data?.pagination || {};
+
+        const formattedKYC = kycData.map((kyc) => ({
+          id: kyc._id,
+          userId: kyc.user?._id || kyc.userId?._id || kyc.userId,
+          name: kyc.user?.name || kyc.personalInfo?.fullName || "Unknown",
+          email: kyc.user?.email || "N/A",
+          phone: kyc.user?.phone || "N/A",
+          status: kyc.status || "pending",
+          submitted: kyc.createdAt
+            ? new Date(kyc.createdAt).toLocaleDateString("en-IN", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })
+            : "N/A",
+          documentType: kyc.document?.type || "N/A",
+          documentNumber: kyc.document?.number || "N/A",
+          address: kyc.personalInfo?.address
+            ? `${kyc.personalInfo.address}${kyc.personalInfo.city ? ", " + kyc.personalInfo.city : ""}${kyc.personalInfo.country ? ", " + kyc.personalInfo.country : ""}`
+            : "N/A",
+          dob: kyc.personalInfo?.dateOfBirth
+            ? new Date(kyc.personalInfo.dateOfBirth).toLocaleDateString(
+                "en-IN",
+                { year: "numeric", month: "short", day: "numeric" },
+              )
+            : "N/A",
+          frontImage: kyc.document?.frontImage,
+          backImage: kyc.document?.backImage,
+          selfie: kyc.selfie,
+          rejectionReason: kyc.rejectionReason,
+        }));
+
+        setKycRequests(formattedKYC);
+        setPagination({
+          totalPages: paginationData.pages || paginationData.totalPages || 1,
+          total: paginationData.total || formattedKYC.length,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching KYC requests:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter by search and document type (tab filtering is done by API)
   const filteredRequests = kycRequests.filter((k) => {
-    const matchesTab = activeTab === "all" || k.status === activeTab;
     const matchesSearch =
       k.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       k.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -116,10 +140,8 @@ const KYC = () => {
     const matchesDocument =
       !documentFilter ||
       k.documentType.toLowerCase().includes(documentFilter.toLowerCase());
-    return matchesTab && matchesSearch && matchesDocument;
+    return matchesSearch && matchesDocument;
   });
-
-  const pendingCount = kycRequests.filter((k) => k.status === "pending").length;
 
   const handleExport = () => {
     setIsExporting(true);
@@ -138,23 +160,31 @@ const KYC = () => {
     }, 1000);
   };
 
-  const handleApprove = (kyc, fromModal = false) => {
+  const handleApprove = async (kyc, fromModal = false) => {
     setProcessingId(kyc.id);
     setProcessingAction("approve");
-    setTimeout(() => {
-      setKycRequests((prev) =>
-        prev.map((k) => (k.id === kyc.id ? { ...k, status: "verified" } : k))
-      );
+
+    try {
+      const response = await AdminApi.approveKYC(kyc.id);
+
+      if (response.success) {
+        setKycRequests((prev) =>
+          prev.map((k) => (k.id === kyc.id ? { ...k, status: "approved" } : k)),
+        );
+        setSuccessMessage(`KYC for ${kyc.name} has been approved!`);
+        setShowSuccess(true);
+        if (fromModal) setShowModal(false);
+        setTimeout(() => setShowSuccess(false), 3000);
+        fetchKYCRequests(); // Refresh the list
+        fetchKYCStats(); // Refresh stats
+      }
+    } catch (error) {
+      console.error("Error approving KYC:", error);
+      alert("Failed to approve KYC");
+    } finally {
       setProcessingId(null);
       setProcessingAction("");
-      setSuccessMessage(`KYC for ${kyc.name} has been approved!`);
-      setShowSuccess(true);
-      if (fromModal) {
-        setShowModal(false);
-        setSelectedKyc(null);
-      }
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 1500);
+    }
   };
 
   const handleRejectClick = (kyc) => {
@@ -163,41 +193,60 @@ const KYC = () => {
     setRejectReason("");
   };
 
-  const handleRejectConfirm = () => {
+  const handleRejectConfirm = async () => {
     if (!rejectReason.trim()) {
       alert("Please provide a rejection reason");
       return;
     }
     setProcessingId(selectedKyc.id);
     setProcessingAction("reject");
-    setTimeout(() => {
-      setKycRequests((prev) =>
-        prev.map((k) =>
-          k.id === selectedKyc.id
-            ? { ...k, status: "rejected", rejectionReason: rejectReason }
-            : k
-        )
-      );
+
+    try {
+      const response = await AdminApi.rejectKYC(selectedKyc.id, rejectReason);
+
+      if (response.success) {
+        setKycRequests((prev) =>
+          prev.map((k) =>
+            k.id === selectedKyc.id
+              ? { ...k, status: "rejected", rejectionReason: rejectReason }
+              : k,
+          ),
+        );
+        setShowRejectModal(false);
+        setShowModal(false);
+        setSuccessMessage(`KYC for ${selectedKyc.name} has been rejected.`);
+        setShowSuccess(true);
+        setSelectedKyc(null);
+        setRejectReason("");
+        setTimeout(() => setShowSuccess(false), 3000);
+        fetchKYCRequests(); // Refresh the list
+        fetchKYCStats(); // Refresh stats
+      }
+    } catch (error) {
+      console.error("Error rejecting KYC:", error);
+      alert("Failed to reject KYC");
+    } finally {
       setProcessingId(null);
       setProcessingAction("");
-      setShowRejectModal(false);
-      setShowModal(false);
-      setSuccessMessage(`KYC for ${selectedKyc.name} has been rejected.`);
-      setShowSuccess(true);
-      setSelectedKyc(null);
-      setRejectReason("");
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 1500);
+    }
   };
+
+  if (loading && kycRequests.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   const getStatusBadge = (status) => {
     const styles = {
-      verified: "bg-emerald-100 text-emerald-700",
+      approved: "bg-emerald-100 text-emerald-700",
       pending: "bg-amber-100 text-amber-700",
       rejected: "bg-red-100 text-red-700",
     };
     const icons = {
-      verified: <CheckCircle className="w-3 h-3" />,
+      approved: <CheckCircle className="w-3 h-3" />,
       pending: <Clock className="w-3 h-3" />,
       rejected: <XCircle className="w-3 h-3" />,
     };
@@ -227,7 +276,7 @@ const KYC = () => {
                 Total Requests
               </p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                2,456
+                {stats.total.toLocaleString()}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
@@ -239,7 +288,7 @@ const KYC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm opacity-80 mb-1">Pending</p>
-              <p className="text-xl md:text-3xl font-bold">12</p>
+              <p className="text-xl md:text-3xl font-bold">{stats.pending}</p>
             </div>
             <Clock className="w-8 h-8 md:w-10 md:h-10 opacity-80" />
           </div>
@@ -249,7 +298,7 @@ const KYC = () => {
             <div>
               <p className="text-xs md:text-sm text-slate-500 mb-1">Verified</p>
               <p className="text-lg md:text-2xl font-bold text-emerald-600">
-                2,389
+                {stats.approved.toLocaleString()}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
@@ -261,7 +310,9 @@ const KYC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm text-slate-500 mb-1">Rejected</p>
-              <p className="text-lg md:text-2xl font-bold text-red-600">55</p>
+              <p className="text-lg md:text-2xl font-bold text-red-600">
+                {stats.rejected}
+              </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
               <XCircle className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
@@ -274,10 +325,13 @@ const KYC = () => {
       <div className="card">
         {/* Tabs */}
         <div className="flex border-b border-slate-100 overflow-x-auto">
-          {["pending", "verified", "rejected", "all"].map((tab) => (
+          {["pending", "approved", "rejected", "all"].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                setCurrentPage(1);
+              }}
               className={`px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-medium capitalize transition-colors whitespace-nowrap ${
                 activeTab === tab
                   ? "text-amber-600 border-b-2 border-amber-500"
@@ -285,9 +339,9 @@ const KYC = () => {
               }`}
             >
               {tab}{" "}
-              {tab === "pending" && pendingCount > 0 && (
+              {tab === "pending" && stats.pending > 0 && (
                 <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                  {pendingCount}
+                  {stats.pending}
                 </span>
               )}
             </button>
@@ -529,7 +583,7 @@ const KYC = () => {
         {/* Pagination */}
         <div className="p-4 md:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
           <p className="text-xs md:text-sm text-slate-500">
-            Showing {filteredRequests.length} of {kycRequests.length} requests
+            Showing {filteredRequests.length} of {pagination.total} requests
           </p>
           <div className="flex gap-1 md:gap-2">
             <button
@@ -539,7 +593,10 @@ const KYC = () => {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            {[1, 2, 3].map((page) => (
+            {Array.from(
+              { length: Math.min(pagination.totalPages, 5) },
+              (_, i) => i + 1,
+            ).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
@@ -553,8 +610,10 @@ const KYC = () => {
               </button>
             ))}
             <button
-              onClick={() => setCurrentPage((p) => Math.min(3, p + 1))}
-              disabled={currentPage === 3}
+              onClick={() =>
+                setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))
+              }
+              disabled={currentPage === pagination.totalPages}
               className="w-8 h-8 md:w-9 md:h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
@@ -648,24 +707,69 @@ const KYC = () => {
                 Document Images
               </h5>
               <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
-                <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer">
-                  <FileText className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
-                  <span className="text-[10px] md:text-xs text-slate-500">
-                    Front Side
-                  </span>
-                </div>
-                <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer">
-                  <FileText className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
-                  <span className="text-[10px] md:text-xs text-slate-500">
-                    Back Side
-                  </span>
-                </div>
-                <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer">
-                  <User className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
-                  <span className="text-[10px] md:text-xs text-slate-500">
-                    Selfie
-                  </span>
-                </div>
+                {selectedKyc.frontImage ? (
+                  <a
+                    href={selectedKyc.frontImage}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="aspect-video bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200 hover:border-amber-400 transition-colors cursor-pointer"
+                  >
+                    <img
+                      src={selectedKyc.frontImage}
+                      alt="Front Side"
+                      className="w-full h-full object-cover"
+                    />
+                  </a>
+                ) : (
+                  <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300">
+                    <FileText className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
+                    <span className="text-[10px] md:text-xs text-slate-500">
+                      Front Side
+                    </span>
+                  </div>
+                )}
+                {selectedKyc.backImage ? (
+                  <a
+                    href={selectedKyc.backImage}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="aspect-video bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200 hover:border-amber-400 transition-colors cursor-pointer"
+                  >
+                    <img
+                      src={selectedKyc.backImage}
+                      alt="Back Side"
+                      className="w-full h-full object-cover"
+                    />
+                  </a>
+                ) : (
+                  <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300">
+                    <FileText className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
+                    <span className="text-[10px] md:text-xs text-slate-500">
+                      Back Side
+                    </span>
+                  </div>
+                )}
+                {selectedKyc.selfie ? (
+                  <a
+                    href={selectedKyc.selfie}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="aspect-video bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200 hover:border-amber-400 transition-colors cursor-pointer"
+                  >
+                    <img
+                      src={selectedKyc.selfie}
+                      alt="Selfie"
+                      className="w-full h-full object-cover"
+                    />
+                  </a>
+                ) : (
+                  <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300">
+                    <User className="w-6 h-6 md:w-8 md:h-8 text-slate-400 mb-1 md:mb-2" />
+                    <span className="text-[10px] md:text-xs text-slate-500">
+                      Selfie
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Rejection Reason */}

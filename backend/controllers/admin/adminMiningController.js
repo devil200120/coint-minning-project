@@ -118,6 +118,65 @@ exports.getMiningStats = async (req, res) => {
       },
     ]);
 
+    // Hourly mining activity for last 24 hours (for chart)
+    const yesterday = new Date();
+    yesterday.setHours(yesterday.getHours() - 24);
+    
+    const hourlyActivity = await MiningSession.aggregate([
+      { 
+        $match: { 
+          startTime: { $gte: yesterday },
+          status: { $in: ['completed', 'active'] }
+        } 
+      },
+      {
+        $group: {
+          _id: { $hour: '$startTime' },
+          coins: { $sum: '$earnedCoins' },
+          sessions: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Format hourly data for chart (fill missing hours with 0)
+    const hourlyData = [];
+    for (let i = 0; i < 24; i += 4) {
+      const hourStr = `${String(i).padStart(2, '0')}:00`;
+      const hourData = hourlyActivity.filter(h => h._id >= i && h._id < i + 4);
+      const totalCoins = hourData.reduce((sum, h) => sum + (h.coins || 0), 0);
+      hourlyData.push({ hour: hourStr, coins: Math.round(totalCoins) });
+    }
+    hourlyData.push({ hour: '24:00', coins: hourlyData[0]?.coins || 0 });
+
+    // Level distribution - calculate from user mining stats
+    const userStats = await User.aggregate([
+      { $match: { 'miningStats.totalMined': { $gt: 0 } } },
+      {
+        $group: {
+          _id: null,
+          totalUsers: { $sum: 1 },
+          withReferrals: { 
+            $sum: { $cond: [{ $gt: ['$referralStats.directReferrals', 0] }, 1, 0] } 
+          },
+          boostedUsers: {
+            $sum: { $cond: [{ $gt: ['$miningStats.boostLevel', 1] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    const totalUsers = userStats[0]?.totalUsers || 100;
+    const withReferrals = userStats[0]?.withReferrals || 0;
+    const boostedUsers = userStats[0]?.boostedUsers || 0;
+    const baseUsers = totalUsers - withReferrals - boostedUsers;
+
+    const levelDistribution = [
+      { name: 'Base Level', value: Math.round((baseUsers / totalUsers) * 100) || 60, color: '#ef4444' },
+      { name: 'Referral Level', value: Math.round((withReferrals / totalUsers) * 100) || 25, color: '#fbbf24' },
+      { name: 'Boost Level', value: Math.round((boostedUsers / totalUsers) * 100) || 15, color: '#22c55e' }
+    ];
+
     res.status(200).json({
       success: true,
       stats: {
@@ -129,6 +188,8 @@ exports.getMiningStats = async (req, res) => {
         todaySessions,
         todayMinedCoins: Math.round(todayMinedCoins),
         topMinersToday,
+        hourlyData,
+        levelDistribution,
       },
     });
   } catch (error) {

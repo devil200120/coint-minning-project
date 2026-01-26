@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
+import AdminApi from "../services/api";
 import {
   CreditCard,
   Search,
@@ -34,77 +35,131 @@ const Payments = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(null);
   const [copiedText, setCopiedText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [payments, setPayments] = useState([]);
+  const [isUploadingQR, setIsUploadingQR] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    total: 0,
+  });
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    totalCollected: 0,
+    todayCollected: 0,
+  });
 
   // UPI Settings State
   const [upiSettings, setUpiSettings] = useState({
-    upiId: "miningapp@paytm",
-    accountName: "Mining App Payments",
+    upiId: "",
+    upiName: "",
+    qrCode: "",
   });
 
-  const [payments, setPayments] = useState([
-    {
-      id: 1,
-      user: "Rajesh Vaishnav",
-      email: "rajesh@gmail.com",
-      utr: "UTR123456789012",
-      amount: 500,
-      upiId: "user@paytm",
-      status: "pending",
-      submitted: "2024-01-25 14:30",
-      screenshot: "payment_1.jpg",
-      purpose: "Ownership Completion",
-    },
-    {
-      id: 2,
-      user: "Amit Kumar",
-      email: "amit@gmail.com",
-      utr: "UTR987654321098",
-      amount: 1000,
-      upiId: "user@gpay",
-      status: "pending",
-      submitted: "2024-01-25 13:15",
-      screenshot: "payment_2.jpg",
-      purpose: "Ownership Completion",
-    },
-    {
-      id: 3,
-      user: "Priya Singh",
-      email: "priya@gmail.com",
-      utr: "UTR456789123456",
-      amount: 500,
-      upiId: "user@phonepe",
-      status: "approved",
-      submitted: "2024-01-24 10:00",
-      screenshot: "payment_3.jpg",
-      purpose: "Ownership Completion",
-    },
-    {
-      id: 4,
-      user: "Rahul Sharma",
-      email: "rahul@gmail.com",
-      utr: "UTR111222333444",
-      amount: 750,
-      upiId: "user@upi",
-      status: "rejected",
-      submitted: "2024-01-23 16:45",
-      screenshot: "payment_4.jpg",
-      purpose: "Ownership Completion",
-      rejectionReason: "Invalid UTR number",
-    },
-  ]);
+  useEffect(() => {
+    fetchPaymentStats();
+    fetchPaymentSettings();
+  }, []);
 
-  const getPendingCount = () =>
-    payments.filter((p) => p.status === "pending").length;
+  useEffect(() => {
+    fetchPayments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, pagination.currentPage]);
 
-  const filteredPayments = payments
-    .filter((p) => (activeTab === "all" ? true : p.status === activeTab))
-    .filter(
-      (p) =>
-        searchQuery === "" ||
-        p.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.utr.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.email.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  const fetchPaymentStats = async () => {
+    try {
+      const response = await AdminApi.getPaymentStats();
+      if (response.success) {
+        setStats(response.stats);
+      }
+    } catch (error) {
+      console.error("Error fetching payment stats:", error);
+    }
+  };
+
+  const fetchPaymentSettings = async () => {
+    try {
+      const response = await AdminApi.getPaymentSettings();
+      if (response.success && response.settings) {
+        setUpiSettings({
+          upiId: response.settings.upiId || "",
+          upiName: response.settings.upiName || "",
+          qrCode: response.settings.qrCode || "",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching payment settings:", error);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: pagination.currentPage,
+        limit: 10,
+        status: activeTab !== "all" ? activeTab : undefined,
+      };
+
+      const response = await AdminApi.getPayments(params);
+
+      if (response.success) {
+        // API returns response.payments (from PaymentProof collection)
+        const paymentsData = response.payments || [];
+        const paginationData = response.pagination || {};
+
+        const formattedPayments = paymentsData.map((payment) => ({
+          id: payment._id,
+          user: payment.user?.name || "Unknown",
+          email: payment.user?.email || "N/A",
+          phone: payment.user?.phone || "N/A",
+          utr: payment.utr || "N/A",
+          amount: payment.amount || 0,
+          upiId: payment.upiId || "N/A",
+          status: payment.status || "pending",
+          submitted: payment.createdAt
+            ? new Date(payment.createdAt).toLocaleDateString("en-IN", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "N/A",
+          screenshot: payment.screenshot,
+          purpose:
+            payment.purpose
+              ?.replace(/_/g, " ")
+              .replace(/\b\w/g, (l) => l.toUpperCase()) || "Coin Purchase",
+          coinsToCredit: payment.coinsToCredit || 0,
+          coinPackage: payment.coinPackage,
+          rejectionReason: payment.rejectionReason,
+        }));
+
+        setPayments(formattedPayments);
+        setPagination((prev) => ({
+          ...prev,
+          totalPages: paginationData.pages || paginationData.totalPages || 1,
+          total: paginationData.total || formattedPayments.length,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredPayments = payments.filter(
+    (p) =>
+      searchQuery === "" ||
+      p.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.utr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.email.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   const showSuccessToast = (message) => {
     setSuccessMessage(message);
@@ -112,18 +167,30 @@ const Payments = () => {
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
-  const handleApprove = (paymentId) => {
+  const handleApprove = async (paymentId) => {
     setIsProcessing(paymentId);
-    setTimeout(() => {
-      setPayments((prev) =>
-        prev.map((p) => (p.id === paymentId ? { ...p, status: "approved" } : p))
-      );
-      setIsProcessing(null);
-      showSuccessToast("Payment approved successfully!");
-      if (selectedPayment?.id === paymentId) {
-        setSelectedPayment((prev) => ({ ...prev, status: "approved" }));
+    try {
+      const response = await AdminApi.approvePayment(paymentId);
+
+      if (response.success) {
+        setPayments((prev) =>
+          prev.map((p) =>
+            p.id === paymentId ? { ...p, status: "approved" } : p,
+          ),
+        );
+        showSuccessToast("Payment approved successfully!");
+        if (selectedPayment?.id === paymentId) {
+          setSelectedPayment((prev) => ({ ...prev, status: "approved" }));
+        }
+        fetchPayments();
+        fetchPaymentStats();
       }
-    }, 1000);
+    } catch (error) {
+      console.error("Error approving payment:", error);
+      alert("Failed to approve payment");
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
   const handleRejectClick = (paymentId) => {
@@ -132,38 +199,118 @@ const Payments = () => {
     setShowRejectModal(true);
   };
 
-  const handleRejectConfirm = () => {
+  const handleRejectConfirm = async () => {
     if (!rejectReason.trim()) return;
     setIsProcessing(rejectPaymentId);
-    setTimeout(() => {
-      setPayments((prev) =>
-        prev.map((p) =>
-          p.id === rejectPaymentId
-            ? { ...p, status: "rejected", rejectionReason: rejectReason }
-            : p
-        )
+
+    try {
+      const response = await AdminApi.rejectPayment(
+        rejectPaymentId,
+        rejectReason,
       );
-      setIsProcessing(null);
-      setShowRejectModal(false);
-      showSuccessToast("Payment rejected!");
-      if (selectedPayment?.id === rejectPaymentId) {
-        setSelectedPayment((prev) => ({
-          ...prev,
-          status: "rejected",
-          rejectionReason: rejectReason,
-        }));
+
+      if (response.success) {
+        setPayments((prev) =>
+          prev.map((p) =>
+            p.id === rejectPaymentId
+              ? { ...p, status: "rejected", rejectionReason: rejectReason }
+              : p,
+          ),
+        );
+        setShowRejectModal(false);
+        showSuccessToast("Payment rejected!");
+        if (selectedPayment?.id === rejectPaymentId) {
+          setSelectedPayment((prev) => ({
+            ...prev,
+            status: "rejected",
+            rejectionReason: rejectReason,
+          }));
+        }
+        setShowModal(false);
+        fetchPayments();
+        fetchPaymentStats();
       }
-      setShowModal(false);
-    }, 1000);
+    } catch (error) {
+      console.error("Error rejecting payment:", error);
+      alert("Failed to reject payment");
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const response = await AdminApi.updatePaymentSettings({
+        upiId: upiSettings.upiId,
+        upiName: upiSettings.upiName,
+        qrCode: upiSettings.qrCode,
+      });
+      if (response.success) {
+        showSuccessToast("Payment settings saved!");
+      }
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      alert("Failed to save payment settings");
+    } finally {
       setIsSaving(false);
-      showSuccessToast("Payment settings saved!");
-    }, 1500);
+    }
   };
+
+  const handleQRCodeUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size must be less than 5MB");
+      return;
+    }
+
+    setIsUploadingQR(true);
+    try {
+      const formData = new FormData();
+      formData.append("qrCode", file);
+
+      const response = await AdminApi.uploadQRCode(formData);
+      if (response.success) {
+        setUpiSettings((prev) => ({
+          ...prev,
+          qrCode: response.qrCode,
+        }));
+        showSuccessToast("QR Code uploaded successfully!");
+      }
+    } catch (error) {
+      console.error("Error uploading QR code:", error);
+      alert(error.message || "Failed to upload QR code");
+    } finally {
+      setIsUploadingQR(false);
+      e.target.value = ""; // Reset file input
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    if (amount >= 100000) {
+      return `₹${(amount / 100000).toFixed(2)}L`;
+    } else if (amount >= 1000) {
+      return `₹${(amount / 1000).toFixed(1)}K`;
+    }
+    return `₹${amount}`;
+  };
+
+  if (loading && payments.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -204,7 +351,7 @@ const Payments = () => {
             <div>
               <p className="text-xs md:text-sm text-slate-500 mb-1">Total</p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                1,256
+                {stats.total.toLocaleString()}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
@@ -216,9 +363,7 @@ const Payments = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm opacity-80 mb-1">Pending</p>
-              <p className="text-xl md:text-3xl font-bold">
-                {getPendingCount()}
-              </p>
+              <p className="text-xl md:text-3xl font-bold">{stats.pending}</p>
             </div>
             <Clock className="w-8 h-8 md:w-10 md:h-10 opacity-80" />
           </div>
@@ -230,7 +375,7 @@ const Payments = () => {
                 Collected
               </p>
               <p className="text-lg md:text-2xl font-bold text-emerald-600">
-                ₹6.28L
+                {formatCurrency(stats.totalCollected)}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
@@ -243,7 +388,7 @@ const Payments = () => {
             <div>
               <p className="text-xs md:text-sm text-slate-500 mb-1">Today</p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                ₹15.5K
+                {formatCurrency(stats.todayCollected)}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
@@ -270,15 +415,59 @@ const Payments = () => {
               <label className="text-sm font-medium text-slate-700 mb-3 block">
                 QR Code
               </label>
-              <div className="w-full aspect-square bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 cursor-pointer hover:bg-slate-50 transition-colors">
-                <Upload className="w-16 h-16 text-slate-400 mb-3" />
-                <span className="text-sm text-slate-500">
-                  Click to upload QR
-                </span>
-                <span className="text-xs text-slate-400 mt-1">
-                  PNG, JPG up to 2MB
-                </span>
-              </div>
+              {upiSettings.qrCode ? (
+                <div className="relative group">
+                  <div className="w-full aspect-square bg-white rounded-xl border-2 border-slate-200 overflow-hidden">
+                    <img
+                      src={upiSettings.qrCode}
+                      alt="Payment QR Code"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-xl flex flex-col items-center justify-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQRCodeUpload}
+                      className="hidden"
+                      disabled={isUploadingQR}
+                    />
+                    {isUploadingQR ? (
+                      <Loader2 className="w-10 h-10 text-white animate-spin" />
+                    ) : (
+                      <>
+                        <Upload className="w-10 h-10 text-white mb-2" />
+                        <span className="text-white text-sm font-medium">
+                          Change QR Code
+                        </span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              ) : (
+                <label className="w-full aspect-square bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 cursor-pointer hover:bg-slate-50 hover:border-amber-400 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleQRCodeUpload}
+                    className="hidden"
+                    disabled={isUploadingQR}
+                  />
+                  {isUploadingQR ? (
+                    <Loader2 className="w-16 h-16 text-amber-500 animate-spin" />
+                  ) : (
+                    <>
+                      <Upload className="w-16 h-16 text-slate-400 mb-3" />
+                      <span className="text-sm text-slate-600 font-medium">
+                        Click to Upload QR Code
+                      </span>
+                      <span className="text-xs text-slate-400 mt-1">
+                        PNG, JPG up to 5MB
+                      </span>
+                    </>
+                  )}
+                </label>
+              )}
             </div>
 
             {/* UPI ID */}
@@ -296,12 +485,14 @@ const Payments = () => {
                       upiId: e.target.value,
                     }))
                   }
+                  placeholder="yourname@upi"
                   className="form-input flex-1"
                 />
                 <button
                   onClick={() => copyToClipboard(upiSettings.upiId)}
                   className="btn btn-secondary"
                   title="Copy UPI ID"
+                  disabled={!upiSettings.upiId}
                 >
                   {copiedText === upiSettings.upiId ? (
                     <Check className="w-4 h-4 text-emerald-500" />
@@ -319,13 +510,14 @@ const Payments = () => {
               </label>
               <input
                 type="text"
-                value={upiSettings.accountName}
+                value={upiSettings.upiName}
                 onChange={(e) =>
                   setUpiSettings((prev) => ({
                     ...prev,
-                    accountName: e.target.value,
+                    upiName: e.target.value,
                   }))
                 }
+                placeholder="Account holder name"
                 className="form-input"
               />
             </div>
@@ -357,7 +549,10 @@ const Payments = () => {
             {["pending", "approved", "rejected", "all"].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setPagination((prev) => ({ ...prev, currentPage: 1 }));
+                }}
                 className={`px-5 py-4 text-sm font-medium capitalize transition-colors ${
                   activeTab === tab
                     ? "text-amber-600 border-b-2 border-amber-500"
@@ -365,9 +560,9 @@ const Payments = () => {
                 }`}
               >
                 {tab}{" "}
-                {tab === "pending" && getPendingCount() > 0 && (
+                {tab === "pending" && stats.pending > 0 && (
                   <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                    {getPendingCount()}
+                    {stats.pending}
                   </span>
                 )}
               </button>
@@ -578,13 +773,38 @@ const Payments = () => {
                 <label className="text-sm font-medium text-slate-700 mb-2 block">
                   Payment Screenshot
                 </label>
-                <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300">
-                  <Receipt className="w-12 h-12 text-slate-400 mb-2" />
-                  <span className="text-sm text-slate-500">
-                    Payment Screenshot
-                  </span>
-                </div>
+                {selectedPayment.screenshot ? (
+                  <a
+                    href={selectedPayment.screenshot}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block aspect-video bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200 hover:border-amber-400 transition-colors"
+                  >
+                    <img
+                      src={selectedPayment.screenshot}
+                      alt="Payment Screenshot"
+                      className="w-full h-full object-contain"
+                    />
+                  </a>
+                ) : (
+                  <div className="aspect-video bg-slate-100 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300">
+                    <Receipt className="w-12 h-12 text-slate-400 mb-2" />
+                    <span className="text-sm text-slate-500">
+                      No Screenshot Uploaded
+                    </span>
+                  </div>
+                )}
               </div>
+
+              {/* Coins to Credit */}
+              {selectedPayment.coinsToCredit > 0 && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-sm text-amber-800">
+                    <span className="font-semibold">Coins to Credit:</span>{" "}
+                    {selectedPayment.coinsToCredit.toLocaleString()} coins
+                  </p>
+                </div>
+              )}
 
               {/* Rejection Reason */}
               {selectedPayment.status === "rejected" && (

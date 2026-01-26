@@ -47,12 +47,28 @@ exports.getDashboardStats = async (req, res) => {
     const activeMiningSession = await MiningSession.countDocuments({ status: 'active' });
     const totalMiningSessions = await MiningSession.countDocuments();
     
-    // Calculate total mined coins
-    const totalMinedResult = await MiningSession.aggregate([
+    // Calculate total mined coins from MiningSession (earnedCoins)
+    const totalMinedFromSessions = await MiningSession.aggregate([
       { $match: { status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$earnedCoins' } } },
     ]);
-    const totalMinedCoins = totalMinedResult[0]?.total || 0;
+    
+    // Also calculate total mined coins from User miningStats (more accurate)
+    const totalMinedFromUsers = await User.aggregate([
+      { $group: { _id: null, total: { $sum: '$miningStats.totalMined' } } },
+    ]);
+    
+    // Use the higher value (user stats are more accurate)
+    const totalMinedCoins = Math.max(
+      totalMinedFromSessions[0]?.total || 0,
+      totalMinedFromUsers[0]?.total || 0
+    );
+    
+    // Also get total coins (including purchased, referral bonuses, etc.)
+    const totalCoinsFromUsers = await User.aggregate([
+      { $group: { _id: null, total: { $sum: '$miningStats.totalCoins' } } },
+    ]);
+    const totalCoins = totalCoinsFromUsers[0]?.total || 0;
 
     // Transaction stats
     const pendingWithdrawals = await Transaction.countDocuments({
@@ -131,6 +147,7 @@ exports.getDashboardStats = async (req, res) => {
           activeSessions: activeMiningSession,
           totalSessions: totalMiningSessions,
           totalMinedCoins: Math.round(totalMinedCoins),
+          totalCoins: Math.round(totalCoins),
         },
         transactions: {
           pendingWithdrawals,

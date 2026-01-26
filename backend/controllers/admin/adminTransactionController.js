@@ -188,18 +188,26 @@ exports.rejectWithdrawal = async (req, res) => {
     transaction.processedBy = req.admin._id;
     await transaction.save();
 
-    // Refund coins to wallet
+    // Refund coins to wallet based on wallet type
     const wallet = await Wallet.findOne({ user: transaction.user });
     if (wallet) {
-      wallet.coinBalance += transaction.amount;
-      await wallet.save();
+      const walletType = transaction.metadata?.walletType || 'auto';
+      
+      if (walletType === 'mining') {
+        await wallet.unlockMiningCoins(transaction.coins);
+      } else if (walletType === 'purchase') {
+        await wallet.unlockPurchaseCoins(transaction.coins);
+      } else {
+        // Legacy: just unlock from total
+        await wallet.unlockCoins(transaction.coins);
+      }
     }
 
     // Notify user
     await Notification.create({
       user: transaction.user,
       title: 'Withdrawal Rejected',
-      message: `Your withdrawal of ${transaction.amount} coins was rejected. Reason: ${reason}. Coins have been refunded to your wallet.`,
+      message: `Your withdrawal of ${transaction.coins} coins was rejected. Reason: ${reason}. Coins have been refunded to your wallet.`,
       type: 'transaction',
     });
 
@@ -443,23 +451,29 @@ exports.approvePaymentProof = async (req, res) => {
     if (notes) proof.adminNotes = notes;
     await proof.save();
 
-    // Credit coins to user's wallet
+    // Credit coins to user's PURCHASE WALLET (not mining wallet)
     if (proof.coinsToCredit > 0) {
       let wallet = await Wallet.findOne({ user: proof.user });
       if (!wallet) {
-        wallet = await Wallet.create({ user: proof.user, coinBalance: 0 });
+        wallet = await Wallet.create({ user: proof.user });
       }
-      wallet.coinBalance += proof.coinsToCredit;
-      await wallet.save();
+      
+      // Add to PURCHASE wallet specifically
+      await wallet.addPurchaseCoins(proof.coinsToCredit);
 
       // Create transaction record
       await Transaction.create({
         user: proof.user,
         type: 'purchase',
         amount: proof.coinsToCredit,
+        coins: proof.coinsToCredit,
         status: 'completed',
         description: `Coin purchase - ${proof.coinsToCredit} coins`,
         paymentProof: proof._id,
+        metadata: {
+          walletType: 'purchase',
+          packageId: proof.coinPackage,
+        },
       });
     }
 
@@ -467,13 +481,13 @@ exports.approvePaymentProof = async (req, res) => {
     await Notification.create({
       user: proof.user,
       title: 'Payment Approved',
-      message: `Your payment of ₹${proof.amount} has been verified. ${proof.coinsToCredit} coins have been credited to your wallet.`,
+      message: `Your payment of ₹${proof.amount} has been verified. ${proof.coinsToCredit} coins have been credited to your Purchase Wallet.`,
       type: 'transaction',
     });
 
     res.status(200).json({
       success: true,
-      message: 'Payment approved and coins credited',
+      message: 'Payment approved and coins credited to Purchase Wallet',
       payment: proof,
     });
   } catch (error) {
@@ -587,6 +601,34 @@ exports.updatePaymentSettings = async (req, res) => {
     });
   } catch (error) {
     console.error('Update Payment Settings Error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Upload QR Code for payments
+// @route   POST /api/admin/payments/upload-qr
+// @access  Private/Admin
+exports.uploadQRCode = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload a QR code image',
+      });
+    }
+
+    const qrCodeUrl = req.file.path;
+
+    // Save to settings
+    await Settings.setSetting('qrCode', qrCodeUrl, 'Payment QR Code URL');
+
+    res.status(200).json({
+      success: true,
+      message: 'QR code uploaded successfully',
+      qrCode: qrCodeUrl,
+    });
+  } catch (error) {
+    console.error('Upload QR Code Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
+import AdminApi from "../services/api";
 import {
   Link2,
   Twitter,
@@ -12,17 +13,22 @@ import {
   Globe,
   Loader2,
   Check,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 
 const SocialLinks = () => {
   const [links, setLinks] = useState({
-    twitter: "https://twitter.com/miningapp",
-    instagram: "https://instagram.com/miningapp",
-    facebook: "https://facebook.com/miningapp",
-    youtube: "https://youtube.com/@miningapp",
-    telegram: "https://t.me/miningapp",
-    website: "https://miningapp.com",
+    twitter: "",
+    instagram: "",
+    facebook: "",
+    youtube: "",
+    telegram: "",
+    website: "",
   });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const socialPlatforms = [
     {
@@ -76,26 +82,93 @@ const SocialLinks = () => {
     joinTelegram: true,
   });
 
+  // Fetch social links on mount
+  useEffect(() => {
+    fetchSocialLinks();
+  }, []);
+
+  const fetchSocialLinks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await AdminApi.getSocialLinks();
+      if (response.success && response.socialLinks) {
+        setLinks({
+          twitter: response.socialLinks.twitter || "",
+          instagram: response.socialLinks.instagram || "",
+          facebook: response.socialLinks.facebook || "",
+          youtube: response.socialLinks.youtube || "",
+          telegram: response.socialLinks.telegram || "",
+          website: response.socialLinks.website || "",
+        });
+        // Set quick actions if available
+        if (response.socialLinks.quickActions) {
+          setQuickActions(response.socialLinks.quickActions);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching social links:", err);
+      setError("Failed to load social links");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (key, value) => {
     setLinks((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSaveLinks = () => {
+  const handleSaveLinks = async () => {
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await AdminApi.updateSocialLinks({
+        ...links,
+        quickActions,
+      });
+      if (response.success) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error("Error saving social links:", err);
+      setError("Failed to save social links");
+      setTimeout(() => setError(null), 3000);
+    } finally {
       setIsSaving(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 1500);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   return (
     <div>
-      <Header
-        title="Social Media Links"
-        subtitle="Manage social media links shown in the app"
-      />
+      <div className="flex items-center justify-between mb-6">
+        <Header
+          title="Social Media Links"
+          subtitle="Manage social media links shown in the app"
+        />
+        <button
+          onClick={fetchSocialLinks}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-all"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500" />
+          <span className="text-red-700">{error}</span>
+        </div>
+      )}
 
       {/* Preview */}
       <div className="card mb-6">

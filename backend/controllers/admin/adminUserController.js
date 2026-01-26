@@ -53,11 +53,26 @@ exports.getAllUsers = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
+    // Fetch wallet balances for all users
+    const userIds = users.map(u => u._id);
+    const wallets = await Wallet.find({ user: { $in: userIds } });
+    const walletMap = {};
+    wallets.forEach(w => {
+      walletMap[w.user.toString()] = w.coinBalance || 0;
+    });
+
+    // Add coinBalance to each user
+    const usersWithBalance = users.map(user => {
+      const userObj = user.toObject();
+      userObj.coinBalance = walletMap[user._id.toString()] || 0;
+      return userObj;
+    });
+
     const total = await User.countDocuments(query);
 
     res.status(200).json({
       success: true,
-      users,
+      users: usersWithBalance,
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / parseInt(limit)),
@@ -235,14 +250,25 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
-    // Soft delete - mark as deleted
-    user.status = 'deleted';
-    user.email = `deleted_${user._id}_${user.email}`;
-    await user.save();
+    // Hard delete - actually remove the user and related data
+    // Delete user's wallet
+    await Wallet.deleteMany({ user: user._id });
+    
+    // Delete user's mining sessions
+    await MiningSession.deleteMany({ user: user._id });
+    
+    // Delete user's transactions
+    await Transaction.deleteMany({ user: user._id });
+    
+    // Delete user's notifications
+    await Notification.deleteMany({ user: user._id });
+    
+    // Delete the user
+    await User.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,
-      message: 'User has been deleted',
+      message: 'User has been permanently deleted',
     });
   } catch (error) {
     console.error('Delete User Error:', error);
@@ -348,7 +374,7 @@ exports.deductCoins = async (req, res) => {
     // Create transaction record
     await Transaction.create({
       user: user._id,
-      type: 'deduction',
+      type: 'withdrawal',
       amount: -amount,
       status: 'completed',
       description: reason || 'Admin deducted coins',
@@ -447,6 +473,77 @@ exports.exportUsers = async (req, res) => {
     });
   } catch (error) {
     console.error('Export Users Error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Create new user (admin)
+// @route   POST /api/admin/users
+// @access  Private/Admin
+exports.createUser = async (req, res) => {
+  try {
+    const { name, email, phone, password, status } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Name, email, and password are required' 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User with this email already exists' 
+      });
+    }
+
+    // Generate unique referral code
+    const { generateReferralCode } = require('../../utils/helpers');
+    let referralCode = generateReferralCode();
+    while (await User.findOne({ referralCode })) {
+      referralCode = generateReferralCode();
+    }
+
+    // Create user
+    const user = await User.create({
+      name,
+      email,
+      phone: phone || '',
+      password,
+      referralCode,
+      status: status || 'active',
+      isEmailVerified: true,
+      'miningStats.totalCoins': 100, // Signup bonus
+    });
+
+    // Create wallet for user
+    await Wallet.create({ user: user._id });
+
+    // Create welcome notification
+    await Notification.create({
+      user: user._id,
+      title: 'Welcome to Mining App!',
+      message: 'Your account has been created by admin. Start mining to earn coins!',
+      type: 'system',
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        status: user.status,
+        referralCode: user.referralCode,
+      },
+    });
+  } catch (error) {
+    console.error('Create User Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

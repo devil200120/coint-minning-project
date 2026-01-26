@@ -5,6 +5,7 @@ const {
   verifyOTP,
   signup,
   login,
+  googleAuth,
   resetPassword,
   getMe,
   logout,
@@ -16,6 +17,7 @@ router.post('/send-otp', sendOTP);
 router.post('/verify-otp', verifyOTP);
 router.post('/signup', signup);
 router.post('/login', login);
+router.post('/google', googleAuth);
 router.post('/reset-password', resetPassword);
 
 // Protected routes

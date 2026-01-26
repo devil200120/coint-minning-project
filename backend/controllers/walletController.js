@@ -5,7 +5,7 @@ const Settings = require('../models/Settings');
 const Notification = require('../models/Notification');
 const { parsePagination } = require('../utils/helpers');
 
-// @desc    Get wallet details
+// @desc    Get wallet details (both wallets)
 // @route   GET /api/wallet
 // @access  Private
 const getWallet = async (req, res) => {
@@ -17,6 +17,8 @@ const getWallet = async (req, res) => {
       const user = await User.findById(req.user._id);
       wallet = await Wallet.create({
         user: req.user._id,
+        miningBalance: user.miningStats?.totalCoins || 0,
+        totalMined: user.miningStats?.totalMined || 0,
         coinBalance: user.miningStats?.totalCoins || 0,
       });
     }
@@ -26,17 +28,43 @@ const getWallet = async (req, res) => {
     res.status(200).json({
       success: true,
       wallet: {
-        coinBalance: wallet.coinBalance,
-        fiatBalance: wallet.fiatBalance,
+        // Combined totals (legacy compatible)
+        totalBalance: wallet.miningBalance + wallet.purchaseBalance + wallet.referralBalance,
+        availableBalance: wallet.availableCoins,
         lockedCoins: wallet.lockedCoins,
-        availableCoins: wallet.availableCoins,
+        
+        // Mining Wallet
+        miningWallet: {
+          balance: wallet.miningBalance,
+          available: wallet.availableMiningCoins,
+          locked: wallet.miningLockedCoins,
+          totalMined: wallet.totalMined,
+        },
+        
+        // Purchase Wallet
+        purchaseWallet: {
+          balance: wallet.purchaseBalance,
+          available: wallet.availablePurchaseCoins,
+          locked: wallet.purchaseLockedCoins,
+          totalPurchased: wallet.totalPurchased,
+        },
+        
+        // Referral Bonus
+        referralWallet: {
+          balance: wallet.referralBalance,
+          totalEarned: wallet.totalReferralEarned,
+        },
+        
+        // Other stats
+        fiatBalance: wallet.fiatBalance,
         totalEarned: wallet.totalEarned,
         totalWithdrawn: wallet.totalWithdrawn,
-        totalPurchased: wallet.totalPurchased,
         currency: wallet.currency,
         status: wallet.status,
         withdrawalAddress: wallet.withdrawalAddress,
         canWithdraw: wallet.canWithdraw(),
+        canWithdrawMining: wallet.canWithdraw('mining'),
+        canWithdrawPurchase: wallet.canWithdraw('purchase'),
         minWithdrawal: wallet.minWithdrawal,
         coinValue: settings.coinValue || 0.01,
       },
@@ -44,6 +72,71 @@ const getWallet = async (req, res) => {
   } catch (error) {
     console.error('Get Wallet Error:', error);
     res.status(500).json({ success: false, message: 'Failed to get wallet' });
+  }
+};
+
+// @desc    Get mining wallet only
+// @route   GET /api/wallet/mining
+// @access  Private
+const getMiningWallet = async (req, res) => {
+  try {
+    let wallet = await Wallet.findOne({ user: req.user._id });
+    
+    if (!wallet) {
+      const user = await User.findById(req.user._id);
+      wallet = await Wallet.create({
+        user: req.user._id,
+        miningBalance: user.miningStats?.totalCoins || 0,
+        totalMined: user.miningStats?.totalMined || 0,
+      });
+    }
+
+    const settings = await Settings.getSettings();
+
+    res.status(200).json({
+      success: true,
+      miningWallet: {
+        balance: wallet.miningBalance,
+        available: wallet.availableMiningCoins,
+        locked: wallet.miningLockedCoins,
+        totalMined: wallet.totalMined,
+        fiatValue: wallet.miningBalance * (settings.coinValue || 0.01),
+        canWithdraw: wallet.canWithdraw('mining'),
+      },
+    });
+  } catch (error) {
+    console.error('Get Mining Wallet Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get mining wallet' });
+  }
+};
+
+// @desc    Get purchase wallet only
+// @route   GET /api/wallet/purchase
+// @access  Private
+const getPurchaseWallet = async (req, res) => {
+  try {
+    let wallet = await Wallet.findOne({ user: req.user._id });
+    
+    if (!wallet) {
+      wallet = await Wallet.create({ user: req.user._id });
+    }
+
+    const settings = await Settings.getSettings();
+
+    res.status(200).json({
+      success: true,
+      purchaseWallet: {
+        balance: wallet.purchaseBalance,
+        available: wallet.availablePurchaseCoins,
+        locked: wallet.purchaseLockedCoins,
+        totalPurchased: wallet.totalPurchased,
+        fiatValue: wallet.purchaseBalance * (settings.coinValue || 0.01),
+        canWithdraw: wallet.canWithdraw('purchase'),
+      },
+    });
+  } catch (error) {
+    console.error('Get Purchase Wallet Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get purchase wallet' });
   }
 };
 
@@ -58,23 +151,28 @@ const syncWallet = async (req, res) => {
     if (!wallet) {
       wallet = await Wallet.create({
         user: req.user._id,
+        miningBalance: user.miningStats?.totalCoins || 0,
+        totalMined: user.miningStats?.totalMined || 0,
         coinBalance: user.miningStats?.totalCoins || 0,
         totalEarned: user.miningStats?.totalMined || 0,
       });
     } else {
-      // Sync only if user has more coins (from mining)
-      if (user.miningStats?.totalCoins > wallet.coinBalance) {
-        const diff = user.miningStats.totalCoins - wallet.coinBalance;
-        wallet.coinBalance = user.miningStats.totalCoins;
+      // Sync only mining coins from user model if user has more
+      if (user.miningStats?.totalCoins > wallet.miningBalance) {
+        const diff = user.miningStats.totalCoins - wallet.miningBalance;
+        wallet.miningBalance = user.miningStats.totalCoins;
+        wallet.totalMined = user.miningStats.totalMined || wallet.totalMined;
         wallet.totalEarned += diff;
-        await wallet.save();
+        await wallet.syncTotalBalance();
       }
     }
 
     res.status(200).json({
       success: true,
       message: 'Wallet synced successfully',
-      coinBalance: wallet.coinBalance,
+      miningBalance: wallet.miningBalance,
+      purchaseBalance: wallet.purchaseBalance,
+      totalBalance: wallet.miningBalance + wallet.purchaseBalance + wallet.referralBalance,
     });
   } catch (error) {
     console.error('Sync Wallet Error:', error);
@@ -116,12 +214,12 @@ const updateWithdrawalAddress = async (req, res) => {
   }
 };
 
-// @desc    Request withdrawal
+// @desc    Request withdrawal (specify wallet type)
 // @route   POST /api/wallet/withdraw
 // @access  Private
 const requestWithdrawal = async (req, res) => {
   try {
-    const { amount, paymentMethod } = req.body;
+    const { amount, paymentMethod, walletType } = req.body; // walletType: 'mining', 'purchase', or 'all'
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ success: false, message: 'Invalid withdrawal amount' });
@@ -132,14 +230,26 @@ const requestWithdrawal = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Wallet not found' });
     }
 
-    // Check if can withdraw
-    const canWithdraw = wallet.canWithdraw();
+    // Determine which wallet to withdraw from
+    const withdrawFrom = walletType || 'all';
+    
+    // Check if can withdraw from specified wallet
+    const canWithdraw = wallet.canWithdraw(withdrawFrom);
     if (!canWithdraw.canWithdraw) {
       return res.status(400).json({ success: false, message: canWithdraw.reason });
     }
 
-    // Check balance
-    if (wallet.availableCoins < amount) {
+    // Check balance based on wallet type
+    let availableBalance;
+    if (withdrawFrom === 'mining') {
+      availableBalance = wallet.availableMiningCoins;
+    } else if (withdrawFrom === 'purchase') {
+      availableBalance = wallet.availablePurchaseCoins;
+    } else {
+      availableBalance = wallet.availableCoins;
+    }
+
+    if (availableBalance < amount) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
@@ -151,14 +261,20 @@ const requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Lock coins
-    await wallet.lockCoins(amount);
+    // Lock coins based on wallet type
+    if (withdrawFrom === 'mining') {
+      await wallet.lockMiningCoins(amount);
+    } else if (withdrawFrom === 'purchase') {
+      await wallet.lockPurchaseCoins(amount);
+    } else {
+      await wallet.lockCoins(amount);
+    }
 
     // Get settings for coin value
     const settings = await Settings.getSettings();
     const fiatAmount = amount * (settings.coinValue || 0.01);
 
-    // Create transaction
+    // Create transaction with wallet type info
     const transaction = await Transaction.create({
       user: req.user._id,
       type: 'withdrawal',
@@ -168,8 +284,11 @@ const requestWithdrawal = async (req, res) => {
       status: 'pending',
       paymentMethod: paymentMethod || 'upi',
       paymentDetails: wallet.withdrawalAddress,
-      description: `Withdrawal of ${amount} coins`,
+      description: `Withdrawal of ${amount} coins from ${withdrawFrom} wallet`,
       balanceAfter: wallet.coinBalance - amount,
+      metadata: {
+        walletType: withdrawFrom,
+      },
     });
 
     // Send notification
@@ -177,7 +296,7 @@ const requestWithdrawal = async (req, res) => {
       user: req.user._id,
       type: 'system',
       title: 'Withdrawal Requested',
-      message: `Your withdrawal request for ${amount} coins ($${fiatAmount.toFixed(2)}) is being processed.`,
+      message: `Your withdrawal request for ${amount} coins ($${fiatAmount.toFixed(2)}) from ${withdrawFrom} wallet is being processed.`,
     });
 
     res.status(200).json({
@@ -189,6 +308,7 @@ const requestWithdrawal = async (req, res) => {
         coins: transaction.coins,
         amount: transaction.amount,
         status: transaction.status,
+        walletType: withdrawFrom,
       },
     });
   } catch (error) {
@@ -203,11 +323,12 @@ const requestWithdrawal = async (req, res) => {
 const getTransactions = async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const { type, status } = req.query;
+    const { type, status, walletType } = req.query;
 
     let query = { user: req.user._id };
     if (type) query.type = type;
     if (status) query.status = status;
+    if (walletType) query['metadata.walletType'] = walletType;
 
     const transactions = await Transaction.find(query)
       .sort({ createdAt: -1 })
@@ -256,7 +377,7 @@ const getTransaction = async (req, res) => {
   }
 };
 
-// @desc    Get wallet summary
+// @desc    Get wallet summary (both wallets)
 // @route   GET /api/wallet/summary
 // @access  Private
 const getWalletSummary = async (req, res) => {
@@ -283,10 +404,25 @@ const getWalletSummary = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      balance: {
-        coins: wallet?.coinBalance || 0,
-        available: wallet?.availableCoins || 0,
-        locked: wallet?.lockedCoins || 0,
+      wallets: {
+        mining: {
+          balance: wallet?.miningBalance || 0,
+          available: wallet?.availableMiningCoins || 0,
+          locked: wallet?.miningLockedCoins || 0,
+        },
+        purchase: {
+          balance: wallet?.purchaseBalance || 0,
+          available: wallet?.availablePurchaseCoins || 0,
+          locked: wallet?.purchaseLockedCoins || 0,
+        },
+        referral: {
+          balance: wallet?.referralBalance || 0,
+        },
+        total: {
+          balance: (wallet?.miningBalance || 0) + (wallet?.purchaseBalance || 0) + (wallet?.referralBalance || 0),
+          available: wallet?.availableCoins || 0,
+          locked: wallet?.lockedCoins || 0,
+        },
       },
       summary,
       recentTransactions,
@@ -297,12 +433,109 @@ const getWalletSummary = async (req, res) => {
   }
 };
 
+// @desc    Transfer coins between wallets (mining <-> purchase)
+// @route   POST /api/wallet/internal-transfer
+// @access  Private
+const internalTransfer = async (req, res) => {
+  try {
+    const { amount, fromWallet, toWallet } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid transfer amount' });
+    }
+
+    if (!['mining', 'purchase'].includes(fromWallet) || !['mining', 'purchase'].includes(toWallet)) {
+      return res.status(400).json({ success: false, message: 'Invalid wallet type. Use "mining" or "purchase"' });
+    }
+
+    if (fromWallet === toWallet) {
+      return res.status(400).json({ success: false, message: 'Cannot transfer to the same wallet' });
+    }
+
+    const wallet = await Wallet.findOne({ user: req.user._id });
+    if (!wallet) {
+      return res.status(404).json({ success: false, message: 'Wallet not found' });
+    }
+
+    // Check source balance
+    const sourceBalance = fromWallet === 'mining' ? wallet.availableMiningCoins : wallet.availablePurchaseCoins;
+    if (sourceBalance < amount) {
+      return res.status(400).json({ success: false, message: `Insufficient ${fromWallet} wallet balance` });
+    }
+
+    // Perform transfer
+    if (fromWallet === 'mining') {
+      wallet.miningBalance -= amount;
+      wallet.purchaseBalance += amount;
+    } else {
+      wallet.purchaseBalance -= amount;
+      wallet.miningBalance += amount;
+    }
+    
+    await wallet.syncTotalBalance();
+
+    // Log transaction
+    await Transaction.create({
+      user: req.user._id,
+      type: 'transfer',
+      amount: 0,
+      coins: amount,
+      currency: 'COIN',
+      status: 'completed',
+      description: `Internal transfer from ${fromWallet} to ${toWallet} wallet`,
+      metadata: {
+        fromWallet,
+        toWallet,
+        internalTransfer: true,
+      },
+    });
+
+    // Emit wallet update via Socket.io for real-time update
+    const io = req.app.get('io');
+    const connectedUsers = req.app.get('connectedUsers');
+    const socketId = connectedUsers?.get(req.user._id.toString());
+    
+    if (io && socketId) {
+      const walletData = {
+        miningBalance: wallet.miningBalance || 0,
+        purchaseBalance: wallet.purchaseBalance || 0,
+        referralBalance: wallet.referralBalance || 0,
+        totalBalance: (wallet.miningBalance || 0) + (wallet.purchaseBalance || 0) + (wallet.referralBalance || 0),
+        lastUpdated: new Date().toISOString(),
+        reason: 'internal_transfer',
+      };
+      io.to(socketId).emit('wallet-update', walletData);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully transferred ${amount} coins from ${fromWallet} to ${toWallet} wallet`,
+      wallets: {
+        mining: {
+          balance: wallet.miningBalance,
+          available: wallet.availableMiningCoins,
+        },
+        purchase: {
+          balance: wallet.purchaseBalance,
+          available: wallet.availablePurchaseCoins,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Internal Transfer Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to transfer coins' });
+  }
+};
+
 module.exports = {
   getWallet,
+  getMiningWallet,
+  getPurchaseWallet,
   syncWallet,
   updateWithdrawalAddress,
   requestWithdrawal,
   getTransactions,
   getTransaction,
   getWalletSummary,
+  internalTransfer,
 };

@@ -81,6 +81,24 @@ const transactionSchema = new mongoose.Schema({
   balanceAfter: {
     type: Number,
   },
+  // Failure reason
+  failureReason: {
+    type: String,
+  },
+  // Metadata for dual wallet system and other info
+  metadata: {
+    walletType: {
+      type: String,
+      enum: ['mining', 'purchase', 'referral', 'all', 'auto'],
+    },
+    packageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'CoinPackage',
+    },
+    fromWallet: String,
+    toWallet: String,
+    internalTransfer: Boolean,
+  },
 }, {
   timestamps: true,
 });
@@ -97,8 +115,9 @@ transactionSchema.pre('save', function(next) {
 });
 
 // Indexes
+// Note: transactionId already has unique: true which creates an index
 transactionSchema.index({ user: 1, type: 1, createdAt: -1 });
 transactionSchema.index({ status: 1, createdAt: -1 });
-transactionSchema.index({ transactionId: 1 });
+transactionSchema.index({ 'metadata.walletType': 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

@@ -9,6 +9,8 @@ const {
   getPurchaseHistory,
   transferCoins,
   getCoinBalance,
+  getPaymentInfo,
+  submitUpiTransaction,
 } = require('../controllers/coinController');
 const { protect } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
@@ -21,10 +23,12 @@ router.get('/rate', getCoinRate);
 router.use(protect);
 
 router.get('/balance', getCoinBalance);
+router.get('/payment-info', getPaymentInfo);
 router.post('/purchase', purchaseCoins);
 router.post('/purchase/:transactionId/proof', upload.single('paymentProof'), submitPaymentProof);
 router.post('/purchase/:transactionId/cancel', cancelPurchase);
 router.get('/purchases', getPurchaseHistory);
 router.post('/transfer', transferCoins);
+router.post('/submit-transaction', submitUpiTransaction);
 
 module.exports = router;

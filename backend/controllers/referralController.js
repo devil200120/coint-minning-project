@@ -31,6 +31,16 @@ const getReferrals = async (req, res) => {
     // Process referrals to add active status
     const processedReferrals = referrals.map((ref) => {
       const isActive = ref.referred ? isUserActive(ref.referred) : false;
+      
+      // Debug logging
+      console.log('Processing referral:', {
+        id: ref._id,
+        referredId: ref.referred?._id,
+        referredName: ref.referred?.name,
+        coinsEarned: ref.coinsEarned,
+        type: ref.type
+      });
+      
       return {
         id: ref._id,
         user: ref.referred ? {
@@ -41,7 +51,7 @@ const getReferrals = async (req, res) => {
           joinedAt: ref.referred.createdAt,
         } : null,
         type: ref.type,
-        coinsEarned: ref.coinsEarned,
+        coinsEarned: ref.coinsEarned || 0,
         isActive,
         createdAt: ref.createdAt,
       };

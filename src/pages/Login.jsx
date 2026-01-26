@@ -10,6 +10,7 @@ import {
   Shield,
   AlertCircle,
 } from "lucide-react";
+import AdminApi from "../services/api";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -31,26 +32,20 @@ const Login = () => {
 
     setIsLoading(true);
 
-    // Simulate API call - Replace with actual API integration
-    setTimeout(() => {
-      // Mock login - replace with actual API call
-      if (email === "admin@mining.com" && password === "admin123456") {
-        // Store token in localStorage
-        localStorage.setItem("adminToken", "mock-jwt-token");
-        localStorage.setItem(
-          "adminUser",
-          JSON.stringify({
-            name: "Super Admin",
-            email: email,
-            role: "super_admin",
-          })
-        );
-        navigate("/");
-      } else {
-        setError("Invalid email or password");
-      }
+    try {
+      const response = await AdminApi.login(email, password);
+
+      // Store token and admin info
+      localStorage.setItem("adminToken", response.token);
+      localStorage.setItem("adminUser", JSON.stringify(response.admin));
+
+      // Navigate to dashboard
+      navigate("/");
+    } catch (err) {
+      setError(err.message || "Invalid email or password");
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (

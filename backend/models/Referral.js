@@ -22,7 +22,7 @@ const referralSchema = new mongoose.Schema({
   },
   coinsEarned: {
     type: Number,
-    default: 0,
+    default: 50, // Default direct referral bonus
   },
   status: {
     type: String,

@@ -12,6 +12,7 @@ const {
   deductCoins,
   getUserStats,
   exportUsers,
+  createUser,
 } = require('../../controllers/admin/adminUserController');
 
 router.use(protectAdmin);
@@ -20,7 +21,8 @@ router.get('/stats', getUserStats);
 router.get('/export', exportUsers);
 
 router.route('/')
-  .get(getAllUsers);
+  .get(getAllUsers)
+  .post(checkPermission('manage_users'), createUser);
 
 router.route('/:id')
   .get(getUserById)

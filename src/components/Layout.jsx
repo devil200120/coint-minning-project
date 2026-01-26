@@ -8,7 +8,7 @@ const Layout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-slate-100 overflow-x-hidden">
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
@@ -88,7 +88,7 @@ const Layout = () => {
         </header>
 
         {/* Page Content */}
-        <div className="p-4 md:p-6 overflow-x-hidden">
+        <div className="p-4 md:p-6">
           <Outlet />
         </div>
       </main>

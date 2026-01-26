@@ -1,4 +1,68 @@
 const CoinPackage = require('../../models/CoinPackage');
+const User = require('../../models/User');
+const Transaction = require('../../models/Transaction');
+const Wallet = require('../../models/Wallet');
+
+// @desc    Get coin statistics
+// @route   GET /api/admin/coins/stats
+// @access  Private/Admin
+exports.getCoinStats = async (req, res) => {
+  try {
+    // Total coins in circulation (from Wallet collection)
+    const totalCoinsResult = await Wallet.aggregate([
+      { $group: { _id: null, total: { $sum: '$coinBalance' } } }
+    ]);
+    const totalCoins = totalCoinsResult[0]?.total || 0;
+
+    // Today's date boundaries
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Added today (bonus transactions by admin)
+    const addedTodayResult = await Transaction.aggregate([
+      { 
+        $match: { 
+          type: 'bonus',
+          amount: { $gt: 0 },
+          createdAt: { $gte: today, $lt: tomorrow }
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const addedToday = addedTodayResult[0]?.total || 0;
+
+    // Deducted today (withdrawal transactions with negative amounts)
+    const deductedTodayResult = await Transaction.aggregate([
+      { 
+        $match: { 
+          type: 'withdrawal',
+          amount: { $lt: 0 },
+          createdAt: { $gte: today, $lt: tomorrow }
+        } 
+      },
+      { $group: { _id: null, total: { $sum: { $abs: '$amount' } } } }
+    ]);
+    const deductedToday = deductedTodayResult[0]?.total || 0;
+
+    // Total transactions count
+    const totalTransactions = await Transaction.countDocuments();
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalCoins: Math.round(totalCoins),
+        addedToday: Math.round(addedToday),
+        deductedToday: Math.round(deductedToday),
+        totalTransactions,
+      },
+    });
+  } catch (error) {
+    console.error('Get Coin Stats Error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
 
 // @desc    Get all coin packages
 // @route   GET /api/admin/coins/packages

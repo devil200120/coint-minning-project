@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
+import AdminApi from "../services/api";
 import {
   Search,
   Filter,
@@ -26,128 +27,419 @@ import {
   Crown,
   Zap,
   Activity,
+  Loader2,
 } from "lucide-react";
 
 const Users = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterKYC, setFilterKYC] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [newUser, setNewUser] = useState({
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [coinAmount, setCoinAmount] = useState("");
+  const [coinLoading, setCoinLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(null);
+  const [actionMessage, setActionMessage] = useState({
+    show: false,
+    type: "",
+    text: "",
+  });
+  const [editForm, setEditForm] = useState({
     name: "",
     email: "",
     phone: "",
     status: "active",
-    kyc: "pending",
   });
-
-  const users = [
-    {
-      id: 1,
-      name: "Rajesh Vaishnav",
-      email: "rajesh@gmail.com",
-      phone: "+91 98765 43210",
-      status: "active",
-      kyc: "verified",
-      totalMining: 125.5,
-      baseLevel: 0.25,
-      referralLevel: 0,
-      boostLevel: 0,
-      referrals: 1,
-      joined: "2024-01-15",
-      ownership: 45,
-      avatar: "RV",
-    },
-    {
-      id: 2,
-      name: "Amit Kumar",
-      email: "amit@gmail.com",
-      phone: "+91 87654 32109",
-      status: "active",
-      kyc: "verified",
-      totalMining: 450.75,
-      baseLevel: 0.25,
-      referralLevel: 0.1,
-      boostLevel: 0.05,
-      referrals: 5,
-      joined: "2024-01-10",
-      ownership: 78,
-      avatar: "AK",
-    },
-    {
-      id: 3,
-      name: "Priya Singh",
-      email: "priya@gmail.com",
-      phone: "+91 76543 21098",
-      status: "inactive",
-      kyc: "pending",
-      totalMining: 50.0,
-      baseLevel: 0.25,
-      referralLevel: 0,
-      boostLevel: 0,
-      referrals: 0,
-      joined: "2024-01-20",
-      ownership: 12,
-      avatar: "PS",
-    },
-    {
-      id: 4,
-      name: "Rahul Sharma",
-      email: "rahul@gmail.com",
-      phone: "+91 65432 10987",
-      status: "active",
-      kyc: "verified",
-      totalMining: 890.25,
-      baseLevel: 0.25,
-      referralLevel: 0.15,
-      boostLevel: 0.1,
-      referrals: 12,
-      joined: "2024-01-05",
-      ownership: 100,
-      avatar: "RS",
-    },
-    {
-      id: 5,
-      name: "Sneha Patel",
-      email: "sneha@gmail.com",
-      phone: "+91 54321 09876",
-      status: "pending",
-      kyc: "rejected",
-      totalMining: 0,
-      baseLevel: 0,
-      referralLevel: 0,
-      boostLevel: 0,
-      referrals: 0,
-      joined: "2024-01-25",
-      ownership: 0,
-      avatar: "SP",
-    },
-    {
-      id: 6,
-      name: "Vikram Singh",
-      email: "vikram@gmail.com",
-      phone: "+91 43210 98765",
-      status: "active",
-      kyc: "verified",
-      totalMining: 1250.0,
-      baseLevel: 0.25,
-      referralLevel: 0.2,
-      boostLevel: 0.15,
-      referrals: 25,
-      joined: "2023-12-15",
-      ownership: 100,
-      avatar: "VS",
-    },
-  ];
-
-  const filteredUsers = users.filter((u) => {
-    const matchesStatus = filterStatus === "all" || u.status === filterStatus;
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalUsers: 0,
+    limit: 10,
   });
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+    kycPending: 0,
+  });
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    status: "active",
+  });
+  const [addUserLoading, setAddUserLoading] = useState(false);
+
+  // Fetch stats from API
+  const fetchStats = async () => {
+    try {
+      const response = await AdminApi.getUserStats();
+      if (response.success && response.stats) {
+        setStats({
+          totalUsers: response.stats.total || 0,
+          activeUsers: response.stats.active || 0,
+          inactiveUsers: response.stats.suspended || 0,
+          kycPending: response.stats.kycPending || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    fetchStats();
+  }, [filterStatus, filterKYC, searchQuery, pagination.currentPage]);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: pagination.currentPage,
+        limit: pagination.limit,
+      };
+
+      // Only add params if they have values
+      if (searchQuery && searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      if (filterStatus && filterStatus !== "all") {
+        params.status = filterStatus;
+      }
+      if (filterKYC && filterKYC !== "") {
+        params.kycStatus = filterKYC;
+      }
+
+      const response = await AdminApi.getUsers(params);
+
+      if (response.success) {
+        // API returns response.users not response.data.users
+        // Check all possible locations for users array
+        let usersData = [];
+        if (Array.isArray(response.users)) {
+          usersData = response.users;
+        } else if (Array.isArray(response.data?.users)) {
+          usersData = response.data.users;
+        } else if (Array.isArray(response.data)) {
+          usersData = response.data;
+        }
+
+        const paginationData =
+          response.pagination || response.data?.pagination || {};
+
+        const formattedUsers = usersData.map((user) => {
+          // Calculate ownership progress percentage from the ownershipProgress object
+          const ownershipData = user.ownershipProgress || {};
+          const daysActiveProgress = Math.min(
+            100,
+            ((ownershipData.daysActive || 0) / 30) * 100,
+          );
+          const miningSessionsProgress = Math.min(
+            100,
+            ((ownershipData.miningSessions || 0) / 20) * 100,
+          );
+          const kycInvitedProgress = ownershipData.kycInvited ? 100 : 0;
+          const overallOwnership = Math.round(
+            (daysActiveProgress + miningSessionsProgress + kycInvitedProgress) /
+              3,
+          );
+
+          // Calculate mining speed components
+          // Base rate is 0.25 (from settings)
+          const baseRate = 0.25;
+          // Referral boost: each active referral adds 20% of base rate
+          const referralCount =
+            user.referralStats?.activeCount ||
+            user.referralStats?.totalCount ||
+            0;
+          const referralBoost = referralCount * (baseRate * 0.2);
+          // Boost level from any purchased boosts (not in current schema, default to 0)
+          const boostLevel = 0;
+
+          return {
+            id: user._id,
+            name: user.name || "Unknown",
+            email: user.email,
+            phone: user.phone || "N/A",
+            status:
+              user.status === "active"
+                ? "active"
+                : user.isActive !== false
+                  ? "active"
+                  : "inactive",
+            kyc: user.kycStatus || "none",
+            totalMining: user.miningStats?.totalMined || 0,
+            totalCoins: user.miningStats?.totalCoins || 0,
+            baseLevel: baseRate,
+            referralLevel: Math.round(referralBoost * 100) / 100,
+            boostLevel: boostLevel,
+            referrals: user.referralStats?.totalCount || 0,
+            activeReferrals: user.referralStats?.activeCount || 0,
+            referralEarned: user.referralStats?.totalEarned || 0,
+            joined: user.createdAt,
+            lastLogin: user.lastLogin,
+            miningStreak: user.miningStats?.streak || 0,
+            miningLevel: user.miningStats?.level || 1,
+            ownership: overallOwnership,
+            ownershipDetails: {
+              daysActive: ownershipData.daysActive || 0,
+              miningSessions: ownershipData.miningSessions || 0,
+              kycInvited: ownershipData.kycInvited || false,
+            },
+            avatar: user.name
+              ? user.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)
+              : "U",
+            coinBalance: user.coinBalance || 0,
+            walletBalance: user.walletBalance || 0,
+            checkinStreak: user.checkinStreak || 0,
+            referralCode: user.referralCode || "",
+          };
+        });
+
+        setUsers(formattedUsers);
+
+        const newPagination = {
+          currentPage:
+            paginationData.current ||
+            paginationData.page ||
+            pagination.currentPage,
+          totalPages: paginationData.pages || paginationData.totalPages || 1,
+          totalUsers: paginationData.total || formattedUsers.length,
+          limit: paginationData.limit || pagination.limit,
+        };
+        setPagination(newPagination);
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+
+    setDeleteLoading(userId);
+    try {
+      const response = await AdminApi.deleteUser(userId);
+      if (response.success) {
+        showMessage("success", "User deleted successfully");
+        fetchUsers();
+        fetchStats(); // Refresh stats after deletion
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      showMessage("error", "Failed to delete user");
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
+
+  const handleUpdateCoins = async (userId, amount, action) => {
+    try {
+      const response = await AdminApi.updateUserCoins(userId, {
+        amount,
+        action,
+      });
+      if (response.success) {
+        fetchUsers();
+        setShowModal(false);
+        showMessage(
+          "success",
+          `Coins ${action === "add" ? "added" : "deducted"} successfully`,
+        );
+      }
+    } catch (error) {
+      console.error("Error updating coins:", error);
+      showMessage("error", "Failed to update coins");
+    }
+  };
+
+  // Handle coin add/deduct from view modal
+  const handleCoinAction = async (action) => {
+    if (
+      !coinAmount ||
+      isNaN(parseFloat(coinAmount)) ||
+      parseFloat(coinAmount) <= 0
+    ) {
+      showMessage("error", "Please enter a valid amount");
+      return;
+    }
+    setCoinLoading(true);
+    try {
+      const response = await fetch(
+        `http://72.62.167.180:5002/api/admin/users/${selectedUser.id}/${action}-coins`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+          },
+          body: JSON.stringify({
+            amount: parseFloat(coinAmount),
+            reason: `Admin ${action}`,
+          }),
+        },
+      );
+      const data = await response.json();
+      if (data.success) {
+        showMessage(
+          "success",
+          `Successfully ${action === "add" ? "added" : "deducted"} ${coinAmount} coins`,
+        );
+        setCoinAmount("");
+        fetchUsers();
+        // Update selected user with new balance
+        setSelectedUser((prev) => ({
+          ...prev,
+          coinBalance:
+            action === "add"
+              ? prev.coinBalance + parseFloat(coinAmount)
+              : prev.coinBalance - parseFloat(coinAmount),
+        }));
+      } else {
+        showMessage("error", data.message || "Failed to update coins");
+      }
+    } catch (error) {
+      console.error("Error updating coins:", error);
+      showMessage("error", "Failed to update coins");
+    } finally {
+      setCoinLoading(false);
+    }
+  };
+
+  // Handle edit user
+  const handleEditUser = (user) => {
+    setSelectedUser(user);
+    setEditForm({
+      name: user.name,
+      email: user.email,
+      phone: user.phone || "",
+      status: user.status,
+    });
+    setShowEditModal(true);
+  };
+
+  // Show toast message
+  const showMessage = (type, text) => {
+    setActionMessage({ show: true, type, text });
+    setTimeout(
+      () => setActionMessage({ show: false, type: "", text: "" }),
+      3000,
+    );
+  };
+
+  // Save edited user
+  const handleSaveEdit = async () => {
+    setEditLoading(true);
+    try {
+      const response = await AdminApi.updateUser(selectedUser.id, editForm);
+      if (response.success) {
+        setShowEditModal(false);
+        showMessage("success", "User updated successfully");
+        fetchUsers();
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      showMessage("error", error.message || "Failed to update user");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Handle ban/unban user
+  const handleToggleBan = async (userId, currentStatus) => {
+    const action = currentStatus === "active" ? "ban" : "unban";
+    if (!window.confirm(`Are you sure you want to ${action} this user?`))
+      return;
+
+    setCoinLoading(true); // Reuse loading state for ban action
+    try {
+      const response = await fetch(
+        `http://72.62.167.180:5002/api/admin/users/${userId}/${action}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+          },
+        },
+      );
+      const data = await response.json();
+      if (data.success) {
+        showMessage(
+          "success",
+          `User ${action === "ban" ? "banned" : "unbanned"} successfully`,
+        );
+        setShowModal(false);
+        fetchUsers();
+      } else {
+        showMessage("error", data.message || `Failed to ${action} user`);
+      }
+    } catch (error) {
+      console.error(`Error ${action}ning user:`, error);
+      showMessage("error", `Failed to ${action} user`);
+    } finally {
+      setCoinLoading(false);
+    }
+  };
+
+  // Handle add new user
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      showMessage("error", "Name, email, and password are required");
+      return;
+    }
+
+    if (newUser.password.length < 6) {
+      showMessage("error", "Password must be at least 6 characters");
+      return;
+    }
+
+    setAddUserLoading(true);
+    try {
+      const response = await AdminApi.createUser({
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+        password: newUser.password,
+        status: newUser.status,
+      });
+
+      if (response.success) {
+        showMessage("success", `User "${newUser.name}" created successfully`);
+        setShowAddModal(false);
+        setNewUser({
+          name: "",
+          email: "",
+          phone: "",
+          password: "",
+          status: "active",
+        });
+        fetchUsers();
+        fetchStats(); // Refresh stats after adding user
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      showMessage("error", error.message || "Failed to create user");
+    } finally {
+      setAddUserLoading(false);
+    }
+  };
+
+  const filteredUsers = users;
 
   const getStatusBadge = (status) => {
     const config = {
@@ -183,67 +475,109 @@ const Users = () => {
       verified: {
         bg: "bg-gradient-to-r from-teal-500 to-emerald-500",
         text: "text-white",
+        icon: "verified",
+      },
+      approved: {
+        bg: "bg-gradient-to-r from-teal-500 to-emerald-500",
+        text: "text-white",
+        icon: "verified",
       },
       pending: {
         bg: "bg-gradient-to-r from-blue-500 to-indigo-500",
         text: "text-white",
+        icon: "pending",
       },
       rejected: {
         bg: "bg-gradient-to-r from-red-500 to-rose-500",
         text: "text-white",
+        icon: "rejected",
+      },
+      none: {
+        bg: "bg-gradient-to-r from-slate-400 to-slate-500",
+        text: "text-white",
+        icon: "none",
       },
     };
-    const { bg, text } = config[kyc];
+    // Default to 'none' if kyc status is not in config
+    const kycConfig = config[kyc] || config.none;
+    const { bg, text, icon } = kycConfig;
+    const displayKyc = kyc || "none";
     return (
       <span
         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${bg} ${text} shadow-sm`}
       >
-        {kyc === "verified" && <CheckCircle className="w-3 h-3" />}
-        {kyc === "pending" && <AlertCircle className="w-3 h-3" />}
-        {kyc === "rejected" && <XCircle className="w-3 h-3" />}
-        {kyc.charAt(0).toUpperCase() + kyc.slice(1)}
+        {icon === "verified" && <CheckCircle className="w-3 h-3" />}
+        {icon === "pending" && <AlertCircle className="w-3 h-3" />}
+        {icon === "rejected" && <XCircle className="w-3 h-3" />}
+        {displayKyc.charAt(0).toUpperCase() + displayKyc.slice(1)}
       </span>
     );
   };
 
-  const stats = [
+  const statCards = [
     {
       label: "Total Users",
-      value: "12,845",
+      value: stats.totalUsers.toLocaleString(),
       change: "+12.5%",
       icon: UsersIcon,
       gradient: "from-blue-600 to-indigo-600",
     },
     {
       label: "Active Users",
-      value: "8,234",
+      value: stats.activeUsers.toLocaleString(),
       change: "+8.2%",
       icon: Activity,
       gradient: "from-emerald-600 to-teal-600",
     },
     {
       label: "Inactive",
-      value: "3,421",
+      value: stats.inactiveUsers.toLocaleString(),
       change: "-2.4%",
       icon: AlertCircle,
       gradient: "from-amber-500 to-orange-500",
     },
     {
       label: "KYC Pending",
-      value: "1,190",
+      value: stats.kycPending.toLocaleString(),
       change: "+5.1%",
       icon: Shield,
       gradient: "from-purple-600 to-pink-600",
     },
   ];
 
+  if (loading && users.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 md:space-y-6 overflow-x-hidden">
+      {/* Toast Notification */}
+      {actionMessage.show && (
+        <div
+          className={`fixed top-4 right-4 z-[100] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-in ${
+            actionMessage.type === "success"
+              ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
+              : "bg-gradient-to-r from-red-500 to-rose-500 text-white"
+          }`}
+        >
+          {actionMessage.type === "success" ? (
+            <CheckCircle className="w-5 h-5" />
+          ) : (
+            <XCircle className="w-5 h-5" />
+          )}
+          <span className="font-medium">{actionMessage.text}</span>
+        </div>
+      )}
+
       <Header title="User Management" subtitle="Manage all registered users" />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 w-full">
-        {stats.map((stat, idx) => (
+        {statCards.map((stat, idx) => (
           <div
             key={idx}
             className="group relative bg-white rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100"
@@ -312,7 +646,11 @@ const Users = () => {
               <option value="inactive">Inactive</option>
               <option value="pending">Pending</option>
             </select>
-            <select className="flex-1 xl:flex-none min-w-[120px] px-3 md:px-4 py-2.5 md:py-3 bg-slate-50 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:border-amber-500 cursor-pointer hover:bg-slate-100 transition-all">
+            <select
+              className="flex-1 xl:flex-none min-w-[120px] px-3 md:px-4 py-2.5 md:py-3 bg-slate-50 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:border-amber-500 cursor-pointer hover:bg-slate-100 transition-all"
+              value={filterKYC}
+              onChange={(e) => setFilterKYC(e.target.value)}
+            >
               <option value="">KYC Status</option>
               <option value="verified">Verified</option>
               <option value="pending">Pending</option>
@@ -416,7 +754,7 @@ const Users = () => {
                     <div className="flex items-center gap-2">
                       <Coins className="w-5 h-5 text-amber-500" />
                       <span className="font-bold text-slate-800">
-                        {user.totalMining.toLocaleString()}
+                        {user.coinBalance.toLocaleString()}
                       </span>
                     </div>
                   </td>
@@ -441,17 +779,32 @@ const Users = () => {
                       <button
                         onClick={() => {
                           setSelectedUser(user);
+                          setCoinAmount("");
                           setShowModal(true);
                         }}
                         className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all hover:scale-110 hover:shadow-lg"
+                        title="View Details"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all hover:scale-110 hover:shadow-lg">
+                      <button
+                        onClick={() => handleEditUser(user)}
+                        className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all hover:scale-110 hover:shadow-lg"
+                        title="Edit User"
+                      >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all hover:scale-110 hover:shadow-lg">
-                        <Trash2 className="w-4 h-4" />
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={deleteLoading === user.id}
+                        className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all hover:scale-110 hover:shadow-lg disabled:opacity-50"
+                        title="Delete User"
+                      >
+                        {deleteLoading === user.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </td>
@@ -464,27 +817,83 @@ const Users = () => {
         {/* Pagination */}
         <div className="p-5 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 bg-slate-50/50">
           <p className="text-sm text-slate-600">
-            Showing <span className="font-semibold">1-6</span> of{" "}
-            <span className="font-semibold">12,845</span> users
+            Showing{" "}
+            <span className="font-semibold">
+              {pagination.totalUsers > 0
+                ? (pagination.currentPage - 1) * pagination.limit + 1
+                : 0}
+              -
+              {Math.min(
+                pagination.currentPage * pagination.limit,
+                pagination.totalUsers,
+              )}
+            </span>{" "}
+            of{" "}
+            <span className="font-semibold">
+              {pagination.totalUsers.toLocaleString()}
+            </span>{" "}
+            users
           </p>
           <div className="flex items-center gap-2">
-            <button className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all">
+            <button
+              onClick={() =>
+                setPagination((prev) => ({
+                  ...prev,
+                  currentPage: Math.max(1, prev.currentPage - 1),
+                }))
+              }
+              disabled={pagination.currentPage === 1}
+              className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all disabled:opacity-50"
+            >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button className="w-10 h-10 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold shadow-lg shadow-amber-500/25">
-              1
+              {pagination.currentPage}
             </button>
-            <button className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all font-medium">
-              2
-            </button>
-            <button className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all font-medium">
-              3
-            </button>
-            <span className="px-2 text-slate-400">...</span>
-            <button className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all font-medium">
-              99
-            </button>
-            <button className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all">
+            {pagination.totalPages > 1 &&
+              pagination.currentPage < pagination.totalPages && (
+                <button
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      currentPage: prev.currentPage + 1,
+                    }))
+                  }
+                  className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all font-medium"
+                >
+                  {pagination.currentPage + 1}
+                </button>
+              )}
+            {pagination.totalPages > 2 &&
+              pagination.currentPage < pagination.totalPages - 1 && (
+                <>
+                  <span className="px-2 text-slate-400">...</span>
+                  <button
+                    onClick={() =>
+                      setPagination((prev) => ({
+                        ...prev,
+                        currentPage: pagination.totalPages,
+                      }))
+                    }
+                    className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all font-medium"
+                  >
+                    {pagination.totalPages}
+                  </button>
+                </>
+              )}
+            <button
+              onClick={() =>
+                setPagination((prev) => ({
+                  ...prev,
+                  currentPage: Math.min(
+                    pagination.totalPages,
+                    prev.currentPage + 1,
+                  ),
+                }))
+              }
+              disabled={pagination.currentPage === pagination.totalPages}
+              className="w-10 h-10 rounded-xl border-2 border-slate-200 flex items-center justify-center hover:bg-slate-100 hover:border-slate-300 transition-all disabled:opacity-50"
+            >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -691,7 +1100,7 @@ const Users = () => {
                     <p className="text-sm font-medium text-slate-800">
                       {new Date(selectedUser.joined).toLocaleDateString(
                         "en-US",
-                        { month: "short", day: "numeric", year: "numeric" }
+                        { month: "short", day: "numeric", year: "numeric" },
                       )}
                     </p>
                   </div>
@@ -783,7 +1192,7 @@ const Users = () => {
                   <div>
                     <p className="text-sm text-slate-500">Current Balance</p>
                     <p className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-                      {selectedUser.totalMining.toLocaleString()}
+                      {selectedUser.coinBalance.toLocaleString()}
                     </p>
                   </div>
                   <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/30">
@@ -794,16 +1203,167 @@ const Users = () => {
                   <input
                     type="number"
                     placeholder="Enter amount"
+                    value={coinAmount}
+                    onChange={(e) => setCoinAmount(e.target.value)}
                     className="flex-1 px-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 transition-all"
+                    disabled={coinLoading}
                   />
-                  <button className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg">
-                    Add
+                  <button
+                    onClick={() => handleCoinAction("add")}
+                    disabled={coinLoading}
+                    className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg disabled:opacity-50"
+                  >
+                    {coinLoading ? "..." : "Add"}
                   </button>
-                  <button className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg">
-                    Deduct
+                  <button
+                    onClick={() => handleCoinAction("deduct")}
+                    disabled={coinLoading}
+                    className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg disabled:opacity-50"
+                  >
+                    {coinLoading ? "..." : "Deduct"}
                   </button>
                 </div>
               </div>
+
+              {/* Quick Actions */}
+              <h5 className="text-sm font-bold text-slate-800 mb-3 mt-6 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-amber-500" />
+                Quick Actions
+              </h5>
+              <div className="flex gap-2">
+                <button
+                  onClick={() =>
+                    handleToggleBan(selectedUser.id, selectedUser.status)
+                  }
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:shadow-lg ${
+                    selectedUser.status === "active"
+                      ? "bg-red-100 text-red-600 hover:bg-red-500 hover:text-white"
+                      : "bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white"
+                  }`}
+                >
+                  {selectedUser.status === "active" ? "Ban User" : "Unban User"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    handleEditUser(selectedUser);
+                  }}
+                  className="flex-1 px-4 py-3 bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg"
+                >
+                  Edit User
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+            {/* Modal Header */}
+            <div className="relative bg-gradient-to-r from-amber-500 to-orange-500 p-6">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="absolute top-4 right-4 w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Edit className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Edit User</h3>
+                  <p className="text-white/80 text-sm">
+                    Update user information
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-amber-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, email: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-amber-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Phone
+                </label>
+                <input
+                  type="text"
+                  value={editForm.phone}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, phone: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-amber-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, status: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-amber-500 transition-all"
+                >
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 pt-0 flex gap-3">
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={editLoading}
+                className="flex-1 px-4 py-3 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={editLoading}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {editLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -875,7 +1435,7 @@ const Users = () => {
                 </label>
                 <input
                   type="tel"
-                  placeholder="Enter phone number"
+                  placeholder="Enter phone number (optional)"
                   value={newUser.phone}
                   onChange={(e) =>
                     setNewUser({ ...newUser, phone: e.target.value })
@@ -884,67 +1444,61 @@ const Users = () => {
                 />
               </div>
 
-              {/* Status & KYC */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Status
-                  </label>
-                  <select
-                    value={newUser.status}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, status: e.target.value })
-                    }
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:border-emerald-500 cursor-pointer transition-all"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="pending">Pending</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    KYC Status
-                  </label>
-                  <select
-                    value={newUser.kyc}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, kyc: e.target.value })
-                    }
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:border-emerald-500 cursor-pointer transition-all"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="verified">Verified</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="Enter password (min 6 characters)"
+                  value={newUser.password}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, password: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={newUser.status}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, status: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:border-emerald-500 cursor-pointer transition-all"
+                >
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
               </div>
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-all"
+                  disabled={addUserLoading}
+                  className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    // Here you would typically save the user to your backend
-                    console.log("New User:", newUser);
-                    alert(`User "${newUser.name}" created successfully!`);
-                    setShowAddModal(false);
-                    setNewUser({
-                      name: "",
-                      email: "",
-                      phone: "",
-                      status: "active",
-                      kyc: "pending",
-                    });
-                  }}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all"
+                  onClick={handleAddUser}
+                  disabled={addUserLoading}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Create User
+                  {addUserLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create User"
+                  )}
                 </button>
               </div>
             </div>

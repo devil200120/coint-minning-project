@@ -397,8 +397,17 @@ const getDashboard = async (req, res) => {
     today.setHours(0, 0, 0, 0);
     const hasCheckedIn = user.lastCheckinDate && new Date(user.lastCheckinDate) >= today;
 
-    // Get wallet
-    const wallet = await Wallet.findOne({ user: req.user._id });
+    // Get or create wallet
+    let wallet = await Wallet.findOne({ user: req.user._id });
+    if (!wallet) {
+      wallet = await Wallet.create({
+        user: req.user._id,
+        miningBalance: user.miningStats?.totalCoins || 0,
+        totalMined: user.miningStats?.totalMined || 0,
+      });
+    }
+
+    const coinValue = settings.coinValue || 0.01;
 
     res.status(200).json({
       success: true,
@@ -428,12 +437,48 @@ const getDashboard = async (req, res) => {
           total: user.referralStats?.totalCount || 0,
           active: user.referralStats?.activeCount || 0,
           code: user.referralCode,
+          totalEarned: user.referralStats?.totalEarned || 0,
         },
-        wallet: wallet ? {
-          balance: wallet.coinBalance,
+        // ========== DUAL WALLET SYSTEM ==========
+        wallets: {
+          // Mining Wallet - Coins from mining activities
+          mining: {
+            balance: wallet.miningBalance,
+            available: wallet.availableMiningCoins,
+            locked: wallet.miningLockedCoins,
+            totalMined: wallet.totalMined,
+            fiatValue: wallet.miningBalance * coinValue,
+          },
+          // Purchase Wallet - Coins bought with money
+          purchase: {
+            balance: wallet.purchaseBalance,
+            available: wallet.availablePurchaseCoins,
+            locked: wallet.purchaseLockedCoins,
+            totalPurchased: wallet.totalPurchased,
+            fiatValue: wallet.purchaseBalance * coinValue,
+          },
+          // Referral Wallet - Coins from referral bonuses
+          referral: {
+            balance: wallet.referralBalance,
+            totalEarned: wallet.totalReferralEarned,
+            fiatValue: wallet.referralBalance * coinValue,
+          },
+          // Combined totals
+          total: {
+            balance: wallet.miningBalance + wallet.purchaseBalance + wallet.referralBalance,
+            available: wallet.availableCoins,
+            locked: wallet.lockedCoins,
+            fiatValue: (wallet.miningBalance + wallet.purchaseBalance + wallet.referralBalance) * coinValue,
+          },
+          coinValue: coinValue,
+          currency: wallet.currency,
+        },
+        // Legacy wallet field (for backward compatibility)
+        wallet: {
+          balance: wallet.miningBalance + wallet.purchaseBalance + wallet.referralBalance,
           available: wallet.availableCoins,
           locked: wallet.lockedCoins,
-        } : null,
+        },
         checkin: {
           hasCheckedIn,
           streak: user.checkinStreak || 0,

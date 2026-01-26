@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Wallet = require('../models/Wallet');
 const MiningSession = require('../models/MiningSession');
 const Notification = require('../models/Notification');
 const { sendMiningCompleteEmail } = require('./sendEmail');
@@ -49,12 +50,19 @@ const checkMiningCycles = async () => {
 
         await user.save();
 
+        // ========== ADD TO MINING WALLET ==========
+        let wallet = await Wallet.findOne({ user: user._id });
+        if (!wallet) {
+          wallet = await Wallet.create({ user: user._id });
+        }
+        await wallet.addMiningCoins(session.coinsEarned);
+
         // Send notification
         await Notification.create({
           user: user._id,
           type: 'mining',
           title: 'Mining Complete! ⛏️',
-          message: `Your mining cycle is complete! You earned ${session.coinsEarned} coins. ${leveledUp ? `Congratulations! You've reached Level ${newLevel}!` : 'Start a new cycle to keep earning!'}`,
+          message: `Your mining cycle is complete! You earned ${session.coinsEarned} coins in your Mining Wallet. ${leveledUp ? `Congratulations! You've reached Level ${newLevel}!` : 'Start a new cycle to keep earning!'}`,
         });
 
         // Send email notification
@@ -64,7 +72,7 @@ const checkMiningCycles = async () => {
           console.error('Failed to send mining complete email:', emailError.message);
         }
 
-        console.log(`Mining complete for user ${user.email}: +${session.coinsEarned} coins`);
+        console.log(`Mining complete for user ${user.email}: +${session.coinsEarned} coins to Mining Wallet`);
       } catch (sessionError) {
         console.error(`Error processing session ${session._id}:`, sessionError.message);
       }
@@ -167,9 +175,59 @@ const updateReferralStatus = async () => {
   }
 };
 
+// ========== TRANSFER REFERRAL BONUS TO MINING WALLET (Next Day) ==========
+// This transfers referral earnings from referral wallet to mining wallet
+// Should run daily at midnight
+const transferReferralToMiningWallet = async () => {
+  try {
+    console.log('Starting daily referral wallet transfer...');
+    
+    // Find all wallets with referral balance > 0
+    const walletsWithReferralBalance = await Wallet.find({
+      referralBalance: { $gt: 0 }
+    }).populate('user');
+
+    console.log(`Found ${walletsWithReferralBalance.length} wallets with referral balance`);
+
+    for (const wallet of walletsWithReferralBalance) {
+      try {
+        if (!wallet.user) continue;
+
+        const referralAmount = wallet.referralBalance;
+        
+        // Transfer from referral wallet to mining wallet
+        wallet.miningBalance += referralAmount;
+        wallet.referralBalance = 0;
+        
+        // Update totals
+        wallet.totalMined += referralAmount; // Add to total mined since it's now in mining wallet
+        
+        await wallet.save();
+
+        // Send notification to user
+        await Notification.create({
+          user: wallet.user._id,
+          type: 'wallet',
+          title: 'Referral Bonus Transferred! 🎉',
+          message: `${referralAmount.toFixed(2)} coins from your referral earnings have been transferred to your Mining Wallet. Keep referring friends to earn more!`,
+        });
+
+        console.log(`Transferred ${referralAmount} coins from referral to mining wallet for user ${wallet.user.email}`);
+      } catch (walletError) {
+        console.error(`Error transferring wallet ${wallet._id}:`, walletError.message);
+      }
+    }
+
+    console.log('Daily referral wallet transfer completed');
+  } catch (error) {
+    console.error('Referral wallet transfer error:', error);
+  }
+};
+
 module.exports = {
   checkMiningCycles,
   sendInactiveReminders,
   updateOwnershipProgress,
   updateReferralStatus,
+  transferReferralToMiningWallet,
 };

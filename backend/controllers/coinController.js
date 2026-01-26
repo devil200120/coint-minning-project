@@ -270,7 +270,7 @@ const getPurchaseHistory = async (req, res) => {
 // @access  Private
 const transferCoins = async (req, res) => {
   try {
-    const { recipientEmail, amount, note } = req.body;
+    const { recipientEmail, amount, note, fromWallet } = req.body; // fromWallet: 'mining', 'purchase', or 'auto'
 
     if (!recipientEmail || !amount || amount <= 0) {
       return res.status(400).json({ success: false, message: 'Invalid transfer details' });
@@ -288,7 +288,23 @@ const transferCoins = async (req, res) => {
 
     // Check sender wallet
     const senderWallet = await Wallet.findOne({ user: req.user._id });
-    if (!senderWallet || senderWallet.availableCoins < amount) {
+    if (!senderWallet) {
+      return res.status(400).json({ success: false, message: 'Wallet not found' });
+    }
+
+    // Determine source wallet
+    const sourceWallet = fromWallet || 'auto';
+    let sourceBalance;
+    
+    if (sourceWallet === 'mining') {
+      sourceBalance = senderWallet.availableMiningCoins;
+    } else if (sourceWallet === 'purchase') {
+      sourceBalance = senderWallet.availablePurchaseCoins;
+    } else {
+      sourceBalance = senderWallet.availableCoins;
+    }
+
+    if (sourceBalance < amount) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
@@ -297,22 +313,28 @@ const transferCoins = async (req, res) => {
     if (!recipientWallet) {
       recipientWallet = await Wallet.create({
         user: recipient._id,
-        coinBalance: recipient.miningStats?.totalCoins || 0,
+        miningBalance: recipient.miningStats?.totalCoins || 0,
       });
     }
 
-    // Deduct from sender
-    await senderWallet.deductCoins(amount);
+    // Deduct from sender based on wallet type
+    if (sourceWallet === 'mining') {
+      await senderWallet.deductMiningCoins(amount);
+    } else if (sourceWallet === 'purchase') {
+      await senderWallet.deductPurchaseCoins(amount);
+    } else {
+      await senderWallet.deductCoins(amount);
+    }
 
-    // Add to recipient
-    await recipientWallet.addCoins(amount, 'transfer');
+    // Add to recipient's purchase wallet (received coins go to purchase wallet)
+    await recipientWallet.addPurchaseCoins(amount);
 
-    // Update user model coins too
+    // Update user model coins too (for backward compatibility)
     const sender = await User.findById(req.user._id);
-    sender.miningStats.totalCoins -= amount;
+    sender.miningStats.totalCoins = Math.max(0, (sender.miningStats?.totalCoins || 0) - amount);
     await sender.save();
 
-    recipient.miningStats.totalCoins += amount;
+    recipient.miningStats.totalCoins = (recipient.miningStats?.totalCoins || 0) + amount;
     await recipient.save();
 
     // Create transactions
@@ -324,10 +346,13 @@ const transferCoins = async (req, res) => {
       currency: 'COIN',
       status: 'completed',
       description: `Transfer to ${recipient.name} (${recipientEmail})`,
-      balanceAfter: senderWallet.coinBalance,
+      balanceAfter: senderWallet.miningBalance + senderWallet.purchaseBalance,
+      metadata: {
+        walletType: sourceWallet,
+      },
     });
 
-    const recipientTransaction = await Transaction.create({
+    await Transaction.create({
       user: recipient._id,
       type: 'transfer',
       amount: amount,
@@ -335,7 +360,10 @@ const transferCoins = async (req, res) => {
       currency: 'COIN',
       status: 'completed',
       description: `Transfer from ${sender.name}${note ? `: ${note}` : ''}`,
-      balanceAfter: recipientWallet.coinBalance,
+      balanceAfter: recipientWallet.miningBalance + recipientWallet.purchaseBalance,
+      metadata: {
+        walletType: 'purchase', // Received coins go to purchase wallet
+      },
     });
 
     // Notify recipient
@@ -354,8 +382,13 @@ const transferCoins = async (req, res) => {
         transactionId: senderTransaction.transactionId,
         coins: amount,
         recipient: recipient.name,
+        fromWallet: sourceWallet,
       },
-      newBalance: senderWallet.coinBalance,
+      wallets: {
+        mining: senderWallet.miningBalance,
+        purchase: senderWallet.purchaseBalance,
+        total: senderWallet.miningBalance + senderWallet.purchaseBalance,
+      },
     });
   } catch (error) {
     console.error('Transfer Coins Error:', error);
@@ -363,29 +396,174 @@ const transferCoins = async (req, res) => {
   }
 };
 
-// @desc    Get coin balance
+// @desc    Get coin balance (both wallets)
 // @route   GET /api/coins/balance
 // @access  Private
 const getCoinBalance = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    const wallet = await Wallet.findOne({ user: req.user._id });
+    let wallet = await Wallet.findOne({ user: req.user._id });
     const settings = await Settings.getSettings();
+
+    // Create wallet if doesn't exist
+    if (!wallet) {
+      wallet = await Wallet.create({
+        user: req.user._id,
+        miningBalance: user.miningStats?.totalCoins || 0,
+        totalMined: user.miningStats?.totalMined || 0,
+      });
+    }
+
+    const coinValue = settings.coinValue || 0.01;
 
     res.status(200).json({
       success: true,
       balance: {
-        coins: user.miningStats?.totalCoins || 0,
-        walletCoins: wallet?.coinBalance || 0,
-        availableCoins: wallet?.availableCoins || 0,
-        lockedCoins: wallet?.lockedCoins || 0,
-        fiatValue: (user.miningStats?.totalCoins || 0) * (settings.coinValue || 0.01),
+        // Total balance (all wallets combined)
+        totalCoins: wallet.miningBalance + wallet.purchaseBalance + wallet.referralBalance,
+        totalAvailable: wallet.availableCoins,
+        totalLocked: wallet.lockedCoins,
+        totalFiatValue: (wallet.miningBalance + wallet.purchaseBalance + wallet.referralBalance) * coinValue,
+        
+        // Mining Wallet
+        miningWallet: {
+          balance: wallet.miningBalance,
+          available: wallet.availableMiningCoins,
+          locked: wallet.miningLockedCoins,
+          totalMined: wallet.totalMined,
+          fiatValue: wallet.miningBalance * coinValue,
+        },
+        
+        // Purchase Wallet
+        purchaseWallet: {
+          balance: wallet.purchaseBalance,
+          available: wallet.availablePurchaseCoins,
+          locked: wallet.purchaseLockedCoins,
+          totalPurchased: wallet.totalPurchased,
+          fiatValue: wallet.purchaseBalance * coinValue,
+        },
+        
+        // Referral Wallet
+        referralWallet: {
+          balance: wallet.referralBalance,
+          totalEarned: wallet.totalReferralEarned,
+          fiatValue: wallet.referralBalance * coinValue,
+        },
+        
         currency: 'USD',
+        coinValue: coinValue,
       },
     });
   } catch (error) {
     console.error('Get Coin Balance Error:', error);
     res.status(500).json({ success: false, message: 'Failed to get balance' });
+  }
+};
+
+// @desc    Get payment settings (QR code, UPI ID, etc.)
+// @route   GET /api/coins/payment-info
+// @access  Private
+const getPaymentInfo = async (req, res) => {
+  try {
+    const settings = await Settings.getSettings();
+
+    res.status(200).json({
+      success: true,
+      paymentInfo: {
+        upiId: settings.paymentUpiId || '',
+        qrCodeUrl: settings.paymentUpiQrCode || '',
+        bankName: settings.paymentBankName || '',
+        accountNumber: settings.paymentAccountNumber || '',
+        ifscCode: settings.paymentIfscCode || '',
+        accountHolderName: settings.paymentAccountHolderName || '',
+        coinPricePerDollar: settings.coinPricePerDollar || 10,
+        coinValue: settings.coinValue || 0.01,
+      },
+    });
+  } catch (error) {
+    console.error('Get Payment Info Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get payment info' });
+  }
+};
+
+// @desc    Submit UPI transaction ID for coin purchase
+// @route   POST /api/coins/submit-transaction
+// @access  Private
+const submitUpiTransaction = async (req, res) => {
+  try {
+    const { transactionId, amount, upiApp } = req.body;
+
+    if (!transactionId || !amount) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Transaction ID and amount are required' 
+      });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Amount must be greater than 0' 
+      });
+    }
+
+    // Check if transaction ID already submitted
+    const existingTransaction = await Transaction.findOne({
+      'metadata.upiTransactionId': transactionId,
+    });
+
+    if (existingTransaction) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This transaction ID has already been submitted' 
+      });
+    }
+
+    const settings = await Settings.getSettings();
+    const coinPricePerDollar = settings.coinPricePerDollar || 10;
+    const coinsToReceive = amount * coinPricePerDollar;
+
+    // Create pending transaction for admin to verify
+    const transaction = await Transaction.create({
+      user: req.user._id,
+      type: 'purchase',
+      amount: amount,
+      coins: coinsToReceive,
+      currency: 'USD',
+      status: 'pending',
+      paymentMethod: 'upi',
+      description: `Coin purchase - $${amount} for ${coinsToReceive} coins`,
+      metadata: {
+        upiTransactionId: transactionId,
+        upiApp: upiApp || 'unknown',
+        coinPriceAtPurchase: coinPricePerDollar,
+        submittedAt: new Date(),
+      },
+    });
+
+    // Notify user
+    await Notification.create({
+      user: req.user._id,
+      type: 'system',
+      title: 'Purchase Submitted',
+      message: `Your purchase of ${coinsToReceive} coins for $${amount} is pending verification. Transaction ID: ${transactionId}`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Transaction submitted successfully! Your coins will be credited after verification.',
+      transaction: {
+        id: transaction._id,
+        transactionId: transaction.transactionId,
+        upiTransactionId: transactionId,
+        amount: amount,
+        coins: coinsToReceive,
+        status: 'pending',
+      },
+    });
+  } catch (error) {
+    console.error('Submit UPI Transaction Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to submit transaction' });
   }
 };
 
@@ -398,4 +576,6 @@ module.exports = {
   getPurchaseHistory,
   transferCoins,
   getCoinBalance,
+  getPaymentInfo,
+  submitUpiTransaction,
 };

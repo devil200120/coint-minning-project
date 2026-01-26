@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
+import AdminApi from "../services/api";
 import {
   Coins,
   Search,
@@ -33,110 +34,200 @@ const CoinManagement = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [isExporting, setIsExporting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [stats, setStats] = useState({
+    totalCoins: 0,
+    addedToday: 0,
+    deductedToday: 0,
+    totalTransactions: 0,
+  });
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pages: 1,
+    total: 0,
+  });
 
-  const users = [
-    {
-      id: 1,
-      name: "Rajesh Vaishnav",
-      email: "rajesh@gmail.com",
-      balance: 125.5,
-    },
-    { id: 2, name: "Amit Kumar", email: "amit@gmail.com", balance: 450.75 },
-    { id: 3, name: "Priya Singh", email: "priya@gmail.com", balance: 50.0 },
-    { id: 4, name: "Rahul Sharma", email: "rahul@gmail.com", balance: 890.25 },
-    { id: 5, name: "Sneha Patel", email: "sneha@gmail.com", balance: 200.0 },
-  ];
+  useEffect(() => {
+    fetchData();
+  }, [currentPage, filterType]);
 
-  const transactions = [
-    {
-      id: 1,
-      user: "Rajesh Vaishnav",
-      type: "add",
-      amount: 50,
-      reason: "Bonus reward",
-      admin: "Super Admin",
-      date: "2024-01-25 14:30",
-    },
-    {
-      id: 2,
-      user: "Amit Kumar",
-      type: "deduct",
-      amount: 25,
-      reason: "Penalty",
-      admin: "Super Admin",
-      date: "2024-01-25 13:15",
-    },
-    {
-      id: 3,
-      user: "Priya Singh",
-      type: "add",
-      amount: 100,
-      reason: "Referral bonus",
-      admin: "Admin",
-      date: "2024-01-25 11:45",
-    },
-    {
-      id: 4,
-      user: "Rahul Sharma",
-      type: "add",
-      amount: 75,
-      reason: "Mining completion",
-      admin: "System",
-      date: "2024-01-25 10:00",
-    },
-    {
-      id: 5,
-      user: "Sneha Patel",
-      type: "deduct",
-      amount: 10,
-      reason: "Correction",
-      admin: "Super Admin",
-      date: "2024-01-24 16:20",
-    },
-  ];
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch coin stats
+      try {
+        const statsResponse = await AdminApi.getCoinStats();
+        if (statsResponse.success) {
+          setStats(statsResponse.stats);
+        }
+      } catch (e) {
+        console.error("Error fetching coin stats:", e);
+      }
+
+      // Fetch users for dropdown
+      const usersResponse = await AdminApi.getUsers({ limit: 100 });
+      if (usersResponse.success) {
+        // API returns response.users directly
+        const usersData =
+          usersResponse.users || usersResponse.data?.users || [];
+        const formattedUsers = usersData.map((user) => ({
+          id: user._id,
+          name: user.name || "Unknown",
+          email: user.email,
+          balance: user.coinBalance ?? user.miningStats?.totalCoins ?? 0,
+        }));
+        setUsers(formattedUsers);
+      }
+
+      // Fetch transactions
+      const transParams = { limit: 10, page: currentPage };
+      if (filterType === "add") transParams.type = "credit";
+      else if (filterType === "deduct") transParams.type = "debit";
+
+      const transResponse = await AdminApi.getTransactions(transParams);
+      if (transResponse.success) {
+        // API returns response.transactions directly
+        const transData =
+          transResponse.transactions || transResponse.data?.transactions || [];
+        const formattedTrans = transData.map((trans) => ({
+          id: trans._id,
+          user: trans.user?.name || trans.userId?.name || "Unknown",
+          type: trans.type === "credit" || trans.amount > 0 ? "add" : "deduct",
+          amount: Math.abs(trans.amount),
+          reason: trans.description || trans.reason || "N/A",
+          admin: trans.adminId?.name || "System",
+          date: new Date(trans.createdAt).toLocaleString(),
+        }));
+        setTransactions(formattedTrans);
+
+        if (transResponse.pagination) {
+          setPagination(transResponse.pagination);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh data without showing full page loader
+  const refreshData = async () => {
+    try {
+      // Fetch coin stats
+      const statsResponse = await AdminApi.getCoinStats();
+      if (statsResponse.success) {
+        setStats(statsResponse.stats);
+      }
+
+      // Fetch users for dropdown
+      const usersResponse = await AdminApi.getUsers({ limit: 100 });
+      if (usersResponse.success) {
+        const usersData = usersResponse.users || [];
+        const formattedUsers = usersData.map((user) => ({
+          id: user._id,
+          name: user.name || "Unknown",
+          email: user.email,
+          balance: user.coinBalance ?? user.miningStats?.totalCoins ?? 0,
+        }));
+        setUsers(formattedUsers);
+      }
+
+      // Fetch transactions
+      const transParams = { limit: 10, page: currentPage };
+      if (filterType === "add") transParams.type = "credit";
+      else if (filterType === "deduct") transParams.type = "debit";
+
+      const transResponse = await AdminApi.getTransactions(transParams);
+      if (transResponse.success) {
+        const transData = transResponse.transactions || [];
+        const formattedTrans = transData.map((trans) => ({
+          id: trans._id,
+          user: trans.user?.name || trans.userId?.name || "Unknown",
+          type: trans.type === "credit" || trans.amount > 0 ? "add" : "deduct",
+          amount: Math.abs(trans.amount),
+          reason: trans.description || trans.reason || "N/A",
+          admin: trans.adminId?.name || "System",
+          date: new Date(trans.createdAt).toLocaleString(),
+        }));
+        setTransactions(formattedTrans);
+        if (transResponse.pagination) {
+          setPagination(transResponse.pagination);
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    }
+  };
+
+  const handleUpdateCoins = async () => {
+    if (!selectedUser || !amount || !reason) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await AdminApi.updateUserCoins(selectedUser, {
+        amount: parseFloat(amount),
+        action: operation,
+        reason,
+      });
+
+      if (response.success) {
+        // Immediately update the user's balance in local state
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.id === selectedUser
+              ? {
+                  ...user,
+                  balance:
+                    operation === "add"
+                      ? user.balance + parseFloat(amount)
+                      : user.balance - parseFloat(amount),
+                }
+              : user,
+          ),
+        );
+
+        setSuccessMessage(
+          `Successfully ${operation === "add" ? "added" : "deducted"} ${amount} coins`,
+        );
+        setShowSuccess(true);
+        setAmount("");
+        setReason("");
+        setSelectedUser("");
+        setSearchQuery("");
+        setTimeout(() => setShowSuccess(false), 3000);
+
+        // Refresh stats and transactions in background
+        refreshData();
+      }
+    } catch (error) {
+      console.error("Error updating coins:", error);
+      alert("Failed to update coins");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const filteredTransactions = transactions.filter((tx) => {
-    if (filterType === "all") return true;
-    return tx.type === filterType;
-  });
-
   const selectedUserData = users.find((u) => u.id === selectedUser);
-
-  const handleSubmit = () => {
-    if (!selectedUser || !amount) {
-      alert("Please select a user and enter amount");
-      return;
-    }
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSuccessMessage(
-        `Successfully ${
-          operation === "add" ? "added" : "deducted"
-        } ${amount} coins ${operation === "add" ? "to" : "from"} ${
-          selectedUserData?.name
-        }`
-      );
-      setShowSuccess(true);
-      setAmount("");
-      setReason("");
-      setSelectedUser("");
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 1500);
-  };
 
   const handleExport = () => {
     setIsExporting(true);
     setTimeout(() => {
       setIsExporting(false);
       // Simulate download
-      const dataStr = JSON.stringify(filteredTransactions, null, 2);
+      const dataStr = JSON.stringify(transactions, null, 2);
       const dataBlob = new Blob([dataStr], { type: "application/json" });
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement("a");
@@ -147,7 +238,19 @@ const CoinManagement = () => {
     }, 1000);
   };
 
-  const totalPages = 3;
+  const formatNumber = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(2) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toLocaleString();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -164,7 +267,9 @@ const CoinManagement = () => {
               <p className="text-xs md:text-sm opacity-80 mb-1 truncate">
                 Total Coins
               </p>
-              <p className="text-xl md:text-3xl font-bold">1.25M</p>
+              <p className="text-xl md:text-3xl font-bold">
+                {formatNumber(stats.totalCoins)}
+              </p>
             </div>
             <Coins className="w-8 h-8 md:w-10 md:h-10 opacity-80 shrink-0" />
           </div>
@@ -176,7 +281,7 @@ const CoinManagement = () => {
                 Added Today
               </p>
               <p className="text-lg md:text-2xl font-bold text-emerald-600">
-                +12,450
+                +{formatNumber(stats.addedToday)}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
@@ -191,7 +296,7 @@ const CoinManagement = () => {
                 Deducted Today
               </p>
               <p className="text-lg md:text-2xl font-bold text-red-600">
-                -1,250
+                -{formatNumber(stats.deductedToday)}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
@@ -206,7 +311,7 @@ const CoinManagement = () => {
                 Transactions
               </p>
               <p className="text-lg md:text-2xl font-bold text-slate-800">
-                8,456
+                {formatNumber(stats.totalTransactions)}
               </p>
             </div>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
@@ -357,7 +462,7 @@ const CoinManagement = () => {
 
             {/* Submit */}
             <button
-              onClick={handleSubmit}
+              onClick={handleUpdateCoins}
               disabled={isSubmitting || !selectedUser || !amount}
               className={`btn w-full flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
                 operation === "add" ? "btn-success" : "btn-danger"
@@ -421,7 +526,7 @@ const CoinManagement = () => {
 
           {/* Mobile Card View */}
           <div className="md:hidden divide-y divide-slate-100">
-            {filteredTransactions.map((tx) => (
+            {transactions.map((tx) => (
               <div key={tx.id} className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -467,48 +572,48 @@ const CoinManagement = () => {
 
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full min-w-[600px]">
+            <table className="w-full min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[180px]">
                     User
                   </th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[100px]">
                     Type
                   </th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[100px]">
                     Amount
                   </th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">
                     Reason
                   </th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[100px]">
                     Admin
                   </th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[160px]">
                     Date
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((tx) => (
+                {transactions.map((tx) => (
                   <tr
                     key={tx.id}
                     className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                   >
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0">
                           {tx.user.charAt(0)}
                         </div>
-                        <span className="font-medium text-slate-800">
+                        <span className="font-medium text-slate-800 text-sm truncate max-w-[120px]">
                           {tx.user}
                         </span>
                       </div>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
                           tx.type === "add"
                             ? "bg-emerald-100 text-emerald-700"
                             : "bg-red-100 text-red-700"
@@ -522,25 +627,25 @@ const CoinManagement = () => {
                         {tx.type}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-4 py-3">
                       <span
-                        className={`font-semibold ${
+                        className={`font-semibold text-sm ${
                           tx.type === "add"
                             ? "text-emerald-600"
                             : "text-red-600"
                         }`}
                       >
                         {tx.type === "add" ? "+" : "-"}
-                        {tx.amount} coins
+                        {tx.amount}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600 truncate max-w-[150px]">
                       {tx.reason}
                     </td>
-                    <td className="px-5 py-4 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600">
                       {tx.admin}
                     </td>
-                    <td className="px-5 py-4 text-sm text-slate-500">
+                    <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
                       {tx.date}
                     </td>
                   </tr>
@@ -552,7 +657,9 @@ const CoinManagement = () => {
           {/* Pagination */}
           <div className="p-4 md:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
             <p className="text-xs md:text-sm text-slate-500">
-              Showing 1 to 5 of 8,456 transactions
+              Showing {transactions.length > 0 ? (currentPage - 1) * 10 + 1 : 0}{" "}
+              to {Math.min(currentPage * 10, pagination.total)} of{" "}
+              {pagination.total} transactions
             </p>
             <div className="flex gap-1 md:gap-2">
               <button
@@ -562,7 +669,10 @@ const CoinManagement = () => {
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              {[1, 2, 3].map((page) => (
+              {Array.from(
+                { length: Math.min(pagination.pages, 5) },
+                (_, i) => i + 1,
+              ).map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
@@ -577,9 +687,9 @@ const CoinManagement = () => {
               ))}
               <button
                 onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  setCurrentPage((p) => Math.min(pagination.pages, p + 1))
                 }
-                disabled={currentPage === totalPages}
+                disabled={currentPage === pagination.pages}
                 className="w-8 h-8 md:w-9 md:h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />

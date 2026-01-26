@@ -35,6 +35,10 @@ const generalStorage = new CloudinaryStorage({
     let folder = 'mining-app/uploads';
     if (file.fieldname === 'paymentScreenshot') {
       folder = 'mining-app/payments';
+    } else if (file.fieldname === 'qrCode') {
+      folder = 'mining-app/qrcodes';
+    } else if (file.fieldname === 'image') {
+      folder = 'mining-app/banners';
     }
     return {
       folder,

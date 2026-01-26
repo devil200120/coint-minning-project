@@ -9,9 +9,13 @@ const {
   deletePackage,
   togglePackageStatus,
   reorderPackages,
+  getCoinStats,
 } = require('../../controllers/admin/adminCoinController');
 
 router.use(protectAdmin);
+
+// Stats route
+router.get('/stats', getCoinStats);
 
 router.route('/')
   .get(getAllPackages)

@@ -93,6 +93,31 @@
           }
         },
         {
+          "name": "Google Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.collectionVariables.set('userToken', jsonData.token);",
+                  "    pm.collectionVariables.set('userId', jsonData.user._id);",
+                  "    console.log('User token saved!');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"idToken\": \"GOOGLE_ID_TOKEN_FROM_CLIENT\", \"referralCode\": \"OPTIONAL_REFERRAL\"}"},
+            "url": {"raw": "{{baseUrl}}/api/auth/google", "host": ["{{baseUrl}}"], "path": ["api", "auth", "google"]}
+          }
+        },
+        {
           "name": "Get Current User",
           "request": {
             "method": "GET",

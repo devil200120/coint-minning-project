@@ -54,6 +54,15 @@ const defaultSettings = {
   maxTransfer: 10000,
   transferFeePercent: 0,
   
+  // Payment Settings (for coin purchase)
+  paymentUpiId: '',
+  paymentUpiQrCode: '', // URL to QR code image
+  paymentBankName: '',
+  paymentAccountNumber: '',
+  paymentIfscCode: '',
+  paymentAccountHolderName: '',
+  coinPricePerDollar: 10, // How many coins per 1 dollar
+  
   // Social Links
   socialLinks: {
     twitter: 'https://twitter.com/miningapp',
